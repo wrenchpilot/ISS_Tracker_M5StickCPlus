@@ -31,7 +31,7 @@ body { background:#f8f9fa }
 
 /* Map box */
 #map.map-box {
-  height: 520px;
+  height: 612px;
   border: 1px solid #ccc;
   border-radius: .5rem;
 }

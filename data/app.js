@@ -1,4 +1,3 @@
-// app.js — full
 (() => {
   // WhereTheISS.at (km units)
   const WISS_NOW = 'https://api.wheretheiss.at/v1/satellites/25544?units=kilometers';
@@ -39,6 +38,9 @@
   // Last ISS sample (raw API object)
   let lastIss = null;
 
+  // Last 8-point direction label for velocity row
+  let lastDir8 = '—';
+
   // Utilities
   function qs(obj) {
     return Object.entries(obj).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
@@ -52,6 +54,28 @@
     const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
     const x = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
+  // Initial bearing (deg) from point A(lat1,lon1) to B(lat2,lon2)
+  function initialBearingDeg(lat1, lon1, lat2, lon2) {
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    // normalize longitudes to [-180,180] before diff to avoid anti-meridian explosions
+    const norm = (x) => ((x + 540) % 360) - 180;
+    const λ1 = norm(lon1) * Math.PI / 180;
+    const λ2 = norm(lon2) * Math.PI / 180;
+    const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
+    let θ = Math.atan2(y, x) * 180 / Math.PI; // [-180,180]
+    if (θ < 0) θ += 360;
+    return θ; // [0,360)
+  }
+
+  function bearingTo8(deg) {
+    // 8-wind compass, 45° sectors centered on the cardinals
+    const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const idx = Math.round(deg / 45) % 8;
+    return labels[idx];
   }
 
   function fmtAge(sec) {
@@ -77,7 +101,7 @@
     };
 
     for (const ll of latlngs) {
-      const cur = L.latLng(ll.lat, normLng(ll.lng ?? ll.lon ?? ll[1]), ll.alt);
+      const cur = L.latLng(ll.lat ?? ll[0], normLng(ll.lng ?? ll.lon ?? ll[1]), ll.alt);
       if (!prev) {
         seg.push(cur);
         prev = cur;
@@ -222,7 +246,7 @@
       `<tr><th>ISS Lat</th><td>${Number.isFinite(lat) ? lat.toFixed(4) : '—'}</td></tr>`,
       `<tr><th>ISS Lon</th><td>${Number.isFinite(lon) ? lon.toFixed(4) : '—'}</td></tr>`,
       `<tr><th>Distance</th><td>${dist} km</td></tr>`,
-      `<tr><th>Velocity</th><td>${Number.isFinite(vel) ? vel.toFixed(0) : '—'} km/h</td></tr>`,
+      `<tr><th>Velocity</th><td>${Number.isFinite(vel) ? vel.toFixed(0) : '—'} km/h ${lastDir8}</td></tr>`,
       `<tr><th>Height</th><td>${Number.isFinite(alt) ? alt.toFixed(1) : '—'} km</td></tr>`,
       `<tr><th>Visibility</th><td>${vis}</td></tr>`,
       `<tr><th>Footprint</th><td>${Number.isFinite(fpt) ? fpt.toFixed(0) : '—'} km</td></tr>`,
@@ -275,15 +299,24 @@
       const lon = Number(data.longitude);
 
       if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        // Determine bearing vs previous point (persisted or live)
+        const ptsExisting = track.getLatLngs();
+        const flat = Array.isArray(ptsExisting[0]) ? ptsExisting.flat() : ptsExisting;
+        const prev = flat.length ? flat[flat.length - 1] : null;
+        if (prev && Number.isFinite(prev.lat) && Number.isFinite(prev.lng)) {
+          const brg = initialBearingDeg(prev.lat, prev.lng, lat, lon);
+          lastDir8 = bearingTo8(brg);
+        } else {
+          lastDir8 = '—';
+        }
+
         // Live marker
         issIcon.setLatLng([lat, lon]);
         if (!issIcon._map) issIcon.addTo(map);
 
         // Extend live track; keep a sane cap
-        const pts = track.getLatLngs();
-        const next = Array.isArray(pts[0]) ? pts.flat() : pts.slice();
+        const next = flat.slice();
         next.push(L.latLng(lat, lon));
-        // cap total points
         if (next.length > 2000) next.splice(0, next.length - 2000);
         track.setLatLngs(splitAtDateline(next));
 
