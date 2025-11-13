@@ -20,6 +20,18 @@ A compact ISS tracker project for the M5StickC Plus (ESP32-based) using a simple
 - Serves a small web UI for configuration and status via the onboard Wi‑Fi
 - Editable settings in `user_settings.h` for Wi‑Fi, API tokens, and behavior
 
+## Screenshots
+
+Below are a couple of screenshots from the device and web UI. Copy these into `screenshots/` (they're already included in this repo) and view them inline here.
+
+![M5StickC Plus running the tracker](screenshots/m5stickcplus.png)
+
+_On-device display and basic status screen._
+
+![Map view showing ISS pass prediction](screenshots/map.png)
+
+_Web UI map / pass prediction view._
+
 ## Requirements
 
 - macOS, Windows, or Linux development machine
