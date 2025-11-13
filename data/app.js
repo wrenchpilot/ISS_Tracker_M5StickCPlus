@@ -1,210 +1,385 @@
-(function () {
-  // Run only after DOM and Leaflet are ready
-  function ready(fn) {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", fn, { once: true });
+// app.js — full
+(() => {
+  // WhereTheISS.at (km units)
+  const WISS_NOW = 'https://api.wheretheiss.at/v1/satellites/25544?units=kilometers';
+  const WISS_POS = 'https://api.wheretheiss.at/v1/satellites/25544/positions'; // ?timestamps=,&units=kilometers
+
+  // DOM helpers
+  const $ = (id) => document.getElementById(id);
+  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+
+  // Map/layers
+  let map, base, terminator;
+  let didInitialFit = false; // run “Fit All” once when content exists
+
+  // Live ISS marker (circle)
+  const issIcon = L.circleMarker([0, 0], { radius: 6, color: '#c00', fillColor: '#f33', fillOpacity: 0.9 });
+
+  // Past track (persisted + live extension)
+  const track = L.polyline([], { color: 'orange', weight: 2 });
+
+  // 1-hour prediction (blue dotted)
+  const predict = L.polyline([], { color: '#2b6cb0', weight: 2, dashArray: '6,6' });
+
+  // Home marker (draggable)
+  let homeLat = 0, homeLon = 0;
+  let homeMarker = null;
+  const homeIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+  });
+
+  // Sun marker (from solar_lat / solar_lon)
+  const sunIcon = L.circleMarker([0, 0], { radius: 6, color: '#ffd400', fillColor: '#ffd400', fillOpacity: 1.0 });
+
+  // Link line Home ↔ ISS
+  let linkLine = null;
+
+  // Last ISS sample (raw API object)
+  let lastIss = null;
+
+  // Utilities
+  function qs(obj) {
+    return Object.entries(obj).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  }
+
+  // Great-circle distance (km)
+  function haversineKm(a, b) {
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
+  function fmtAge(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '—';
+    if (sec < 90) return `${Math.round(sec)} s`;
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return `${m}m ${s}s`;
+  }
+
+  // --- Antimeridian helpers: split polylines at ±180 so Leaflet doesn’t draw a long straight wrap ---
+  function splitAtDateline(latlngs) {
+    if (!latlngs || latlngs.length < 2) return latlngs;
+    const out = [];
+    let seg = [];
+    let prev = null;
+
+    const normLng = (lng) => {
+      // normalize to [-180, 180]
+      let x = lng;
+      while (x > 180) x -= 360;
+      while (x < -180) x += 360;
+      return x;
+    };
+
+    for (const ll of latlngs) {
+      const cur = L.latLng(ll.lat, normLng(ll.lng ?? ll.lon ?? ll[1]), ll.alt);
+      if (!prev) {
+        seg.push(cur);
+        prev = cur;
+        continue;
+      }
+      const dLon = Math.abs(cur.lng - prev.lng);
+      if (dLon > 180) {
+        // break the line to avoid a long cross-map segment
+        out.push(seg);
+        seg = [cur];
+      } else {
+        seg.push(cur);
+      }
+      prev = cur;
+    }
+    if (seg.length) out.push(seg);
+    // Leaflet accepts an array of arrays to make multiple segments
+    return out.length === 1 ? out[0] : out;
+  }
+
+  // Bounds composed from everything we show
+  function layerBounds() {
+    const layers = [];
+    if (homeMarker) layers.push(homeMarker.getLatLng());
+    if (issIcon && issIcon.getLatLng) layers.push(issIcon.getLatLng());
+    const t = track.getLatLngs();
+    if (t && (Array.isArray(t[0]) ? t.flat().length : t.length)) {
+      (Array.isArray(t[0]) ? t.flat() : t).forEach(p => layers.push(p));
+    }
+    const p = predict.getLatLngs();
+    if (p && (Array.isArray(p[0]) ? p.flat().length : p.length)) {
+      (Array.isArray(p[0]) ? p.flat() : p).forEach(p2 => layers.push(p2));
+    }
+    if (sunIcon && sunIcon.getLatLng) layers.push(sunIcon.getLatLng());
+    if (!layers.length) return null;
+    return L.latLngBounds(layers);
+  }
+
+  // Fit All: prefer actual layer bounds; otherwise fit entire world
+  function fitAll(pad = [30, 30]) {
+    const b = layerBounds();
+    if (b) {
+      map.fitBounds(b, { paddingTopLeft: pad, paddingBottomRight: pad, animate: false });
     } else {
-      fn();
+      map.fitWorld({ animate: false });
+    }
+  }
+  function fitAllOnce() {
+    if (!didInitialFit) {
+      didInitialFit = true;
+      fitAll();
     }
   }
 
-  ready(async function main() {
-    if (typeof L === "undefined") {
-      console.error("Leaflet not loaded");
-      return;
+  function addOrRefreshTerminator() {
+    if (!L.terminator) return; // plugin missing → skip
+    const t = L.terminator({
+      resolution: 4,
+      fillOpacity: 0.28,
+      color: '#000000',
+      fillColor: '#000000',
+      stroke: false
+    });
+    if (terminator) map.removeLayer(terminator);
+    terminator = t.addTo(map);
+  }
+
+  async function loadDeviceConfig() {
+    try {
+      const r = await fetch('/config.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      if (j && j.home) {
+        homeLat = Number(j.home.lat) || 0;
+        homeLon = Number(j.home.lon) || 0;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  async function loadPersistedTrack() {
+    // Expect array of {lat, lon, ts} for the last hour (device provides it)
+    try {
+      const r = await fetch('/track.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      if (Array.isArray(j)) {
+        const pts = j
+          .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+          .map(p => L.latLng(Number(p.lat), Number(p.lon)));
+        const split = splitAtDateline(pts);
+        track.setLatLngs(split);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  async function fetchIssNow() {
+    const r = await fetch(WISS_NOW, { cache: 'no-store' });
+    if (!r.ok) throw new Error('iss_now http ' + r.status);
+    return r.json();
+  }
+
+  async function fetchPredictions(startTs) {
+    // 1 hour ahead, every 2 minutes (31 samples)
+    const step = 120; // seconds
+    const count = 31;
+    const arr = Array.from({ length: count }, (_, i) => startTs + i * step);
+    const url = `${WISS_POS}?${qs({ timestamps: arr.join(','), units: 'kilometers' })}`;
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('iss_positions http ' + r.status);
+    return r.json();
+  }
+
+  function updateTelemetry(data) {
+    const el = $('telemetry');
+    if (!el) return;
+
+    const lat = Number(data.latitude);
+    const lon = Number(data.longitude);
+    const alt = Number(data.altitude);
+    const vel = Number(data.velocity);
+    const vis = data.visibility || '—';
+    const fpt = Number(data.footprint);
+    const ts = Number(data.timestamp);
+    const sLat = Number(data.solar_lat);
+    const sLon = Number(data.solar_lon);
+
+    let dist = '—';
+    if (homeMarker && Number.isFinite(lat) && Number.isFinite(lon)) {
+      dist = haversineKm(
+        { lat: homeMarker.getLatLng().lat, lon: homeMarker.getLatLng().lng },
+        { lat, lon }
+      ).toFixed(1);
     }
 
-    // ---- 1) Get device/home info first (for initial center) ----
-    let homeLat = 0, homeLon = 0, locToken = "";
+    let age = '—';
+    if (Number.isFinite(ts)) {
+      age = fmtAge(Math.max(0, (Date.now() / 1000) - ts));
+    }
 
+    el.innerHTML = [
+      "<table class='table table-sm mb-0'>",
+      `<tr><th>ISS Lat</th><td>${Number.isFinite(lat) ? lat.toFixed(4) : '—'}</td></tr>`,
+      `<tr><th>ISS Lon</th><td>${Number.isFinite(lon) ? lon.toFixed(4) : '—'}</td></tr>`,
+      `<tr><th>Distance</th><td>${dist} km</td></tr>`,
+      `<tr><th>Velocity</th><td>${Number.isFinite(vel) ? vel.toFixed(0) : '—'} km/h</td></tr>`,
+      `<tr><th>Height</th><td>${Number.isFinite(alt) ? alt.toFixed(1) : '—'} km</td></tr>`,
+      `<tr><th>Visibility</th><td>${vis}</td></tr>`,
+      `<tr><th>Footprint</th><td>${Number.isFinite(fpt) ? fpt.toFixed(0) : '—'} km</td></tr>`,
+      `<tr><th>Solar Lat</th><td>${Number.isFinite(sLat) ? sLat.toFixed(2) : '—'}</td></tr>`,
+      `<tr><th>Solar Lon</th><td>${Number.isFinite(sLon) ? sLon.toFixed(2) : '—'}</td></tr>`,
+      homeMarker
+        ? `<tr><th>Home</th><td>${homeMarker.getLatLng().lat.toFixed(4)}, ${homeMarker.getLatLng().lng.toFixed(4)}</td></tr>`
+        : '',
+      '</table>'
+    ].join('');
+  }
+
+  function updateLines(lat, lon) {
+    // Home ↔ ISS
+    if (linkLine) map.removeLayer(linkLine);
+    if (homeMarker) {
+      linkLine = L.polyline([[homeMarker.getLatLng().lat, homeMarker.getLatLng().lng], [lat, lon]], {
+        color: 'green',
+        weight: 1,
+        dashArray: '4,6'
+      }).addTo(map);
+    }
+  }
+
+  function updateSun(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    sunIcon.setLatLng([lat, lon]);
+    if (!sunIcon._map) sunIcon.addTo(map);
+  }
+
+  async function refreshPrediction(tsBase) {
     try {
-      const cfg = await fetch("/config.json", { cache: "no-store" }).then(r => r.json());
-      if (cfg && cfg.home) {
-        homeLat = Number(cfg.home.lat) || 0;
-        homeLon = Number(cfg.home.lon) || 0;
-      }
-      if (cfg && cfg.loc_token) {
-        locToken = String(cfg.loc_token || "");
-      }
-      // Render device box
-      const di = document.getElementById("deviceinfo");
-      if (di && cfg && cfg.wifi) {
-        di.innerHTML = `
-          <div><b>Wi-Fi:</b> ${cfg.wifi.ssid || "(none)"} (${cfg.wifi.ip || "-"})</div>
-          <div><b>Home:</b> ${homeLat.toFixed(4)}, ${homeLon.toFixed(4)}</div>
-        `;
+      const preds = await fetchPredictions(tsBase);
+      const pts = preds
+        .filter(p => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
+        .map(p => L.latLng(p.latitude, p.longitude));
+      const split = splitAtDateline(pts);
+      predict.setLatLngs(split);
+      fitAllOnce();
+    } catch (e) {
+      console.warn('Prediction error:', e.message || e);
+    }
+  }
+
+  async function poll() {
+    try {
+      const data = await fetchIssNow();
+
+      const lat = Number(data.latitude);
+      const lon = Number(data.longitude);
+
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        // Live marker
+        issIcon.setLatLng([lat, lon]);
+        if (!issIcon._map) issIcon.addTo(map);
+
+        // Extend live track; keep a sane cap
+        const pts = track.getLatLngs();
+        const next = Array.isArray(pts[0]) ? pts.flat() : pts.slice();
+        next.push(L.latLng(lat, lon));
+        // cap total points
+        if (next.length > 2000) next.splice(0, next.length - 2000);
+        track.setLatLngs(splitAtDateline(next));
+
+        // Lines + telemetry
+        updateLines(lat, lon);
+        updateTelemetry(data);
+
+        // Sun & day/night
+        updateSun(Number(data.solar_lat), Number(data.solar_lon));
+        addOrRefreshTerminator();
+
+        // Predictions: first time or if stale
+        if (!predict.getLatLngs().length || (Date.now() / 1000 - Number(data.timestamp)) > 60) {
+          refreshPrediction(Number(data.timestamp));
+        }
+
+        lastIss = data;
+        fitAllOnce(); // ensure default “Fit All” once we have content
       }
     } catch (e) {
-      console.warn("config.json failed:", e);
+      console.warn('Live fetch error:', e.message || e);
     }
+  }
 
-    // ---- 2) Map init ----
-    const mapEl = document.getElementById("map");
-    if (!mapEl) {
-      console.error("#map element missing");
-      return;
-    }
+  async function init() {
+    await loadDeviceConfig();
 
-    const map = L.map("map").setView([homeLat, homeLon], 4);
-
-    // OSM tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-
-    // Home marker (green) — NOW DRAGGABLE to set new home
-    const homeIcon = L.icon({
-      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
-      iconSize: [25, 41],
-      iconAnchor: [12, 41]
+    // Map with **constrained world** (no repeating), reasonable minZoom
+    map = L.map('map', {
+      worldCopyJump: false,
+      maxBounds: [[-85, -180], [85, 180]],
+      maxBoundsViscosity: 1.0,
+      minZoom: 2
     });
-    const homeMarker = L.marker([homeLat, homeLon], {
-      title: "Home",
-      icon: homeIcon,
-      draggable: true
+    base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 12,
+      noWrap: true,            // <- key: no world wrap tiles
+      bounds: [[-85, -180], [85, 180]],
+      attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    homeMarker.on("dragend", async () => {
-      const ll = homeMarker.getLatLng();
-      const newLat = Number(ll.lat.toFixed(6));
-      const newLon = Number(ll.lng.toFixed(6));
+    // Add layers
+    track.addTo(map);
+    predict.addTo(map);
 
+    // Home marker (draggable)
+    const startHome = [Number.isFinite(homeLat) ? homeLat : 0, Number.isFinite(homeLon) ? homeLon : 0];
+    homeMarker = L.marker(startHome, { title: 'Home', icon: homeIcon, draggable: true }).addTo(map);
+    homeMarker.on('dragend', async () => {
+      const p = homeMarker.getLatLng();
       try {
-        const headers = { "Content-Type": "application/json" };
-        if (locToken) headers["Authorization"] = "Bearer " + locToken;
-
-        const r = await fetch("/loc", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ lat: newLat, lon: newLon })
+        await fetch('/savehome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: qs({ lat: p.lat, lon: p.lng })
         });
-        if (!r.ok) throw new Error("loc failed " + r.status);
-
-        homeLat = newLat;
-        homeLon = newLon;
-
-        // Update device box + immediately update link line next poll
-        const di = document.getElementById("deviceinfo");
-        if (di) {
-          di.innerHTML = `
-            <div><b>Wi-Fi:</b> (refreshing)</div>
-            <div><b>Home:</b> ${homeLat.toFixed(4)}, ${homeLon.toFixed(4)}</div>
-          `;
-        }
-      } catch (e) {
-        alert("Failed to save new Home: " + e.message);
-        homeMarker.setLatLng([homeLat, homeLon]); // revert
+      } catch (_) { /* ignore */ }
+      if (lastIss && Number.isFinite(lastIss.latitude) && Number.isFinite(lastIss.longitude)) {
+        updateLines(Number(lastIss.latitude), Number(lastIss.longitude));
+        updateTelemetry(lastIss);
       }
+      fitAll(); // reflect new “home” in bounds
     });
 
-    // ISS marker + track + link line
-    let issMarker = null;
-    const track = L.polyline([], { color: "orange", weight: 2 }).addTo(map);
-    let linkLine = null;
+    // Buttons
+    on($('centerHome'), 'click', () => {
+      if (homeMarker) map.setView(homeMarker.getLatLng(), 4);
+    });
+    on($('centerIss'), 'click', () => {
+      if (issIcon && issIcon.getLatLng) map.setView(issIcon.getLatLng(), 4);
+    });
+    on($('fitAll'), 'click', () => fitAll());
 
-    function haversineKm(a, b) {
-      const R = 6371;
-      const dLat = (b.lat - a.lat) * Math.PI / 180;
-      const dLon = (b.lon - a.lon) * Math.PI / 180;
-      const la1 = a.lat * Math.PI / 180;
-      const la2 = b.lat * Math.PI / 180;
-      const sinDLat = Math.sin(dLat / 2), sinDLon = Math.sin(dLon / 2);
-      const x = sinDLat * sinDLat + Math.cos(la1) * Math.cos(la2) * sinDLon * sinDLon;
-      return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    // Day/Night overlay (plugin URL is included in index.html)
+    addOrRefreshTerminator();
+    setInterval(addOrRefreshTerminator, 60 * 1000);
+
+    // Load persisted track first so path is visible before live data
+    await loadPersistedTrack();
+
+    // Default: world view if we only have home/track so far
+    if (!track.getLatLngs().length) {
+      map.fitWorld({ animate: true });
+    } else {
+      fitAllOnce();
     }
 
-    // ---- 3) Load any persisted track once (served by firmware) ----
-    async function loadTrackOnce() {
-      try {
-        const r = await fetch("/track.json", { cache: "no-store" });
-        if (!r.ok) return; // if endpoint not present yet, skip silently
-        const j = await r.json();
-        if (!j || !Array.isArray(j.points)) return;
+    // First live sample + periodic polling
+    await poll();
+    setInterval(poll, 5000);
+  }
 
-        const pts = j.points
-          .filter(p => typeof p.lat === "number" && typeof p.lon === "number")
-          .map(p => [p.lat, p.lon]);
-
-        if (pts.length) {
-          track.setLatLngs(pts);
-          // Keep view reasonable: only pan if home is (0,0)
-          if (!homeLat && !homeLon) {
-            map.fitBounds(track.getBounds(), { padding: [20, 20] });
-          }
-        }
-      } catch (e) {
-        // ignore — device may not have implemented persistence yet
-      }
-    }
-
-    // ---- 4) Regular live polling ----
-    async function pollIss() {
-      try {
-        const r = await fetch("/iss.json", { cache: "no-store" });
-        if (!r.ok) return;
-        const j = await r.json();
-        if (!j.haveFix || !j.iss) return;
-
-        const p = { lat: Number(j.iss.lat), lon: Number(j.iss.lon) };
-
-        // Marker
-        if (!issMarker) {
-          issMarker = L.circleMarker([p.lat, p.lon], {
-            radius: 6, color: "#c00", fillColor: "#f33", fillOpacity: 0.9
-          }).addTo(map).bindPopup("ISS");
-        } else {
-          issMarker.setLatLng([p.lat, p.lon]);
-        }
-
-        // Track (append on the client; firmware will persist/serve /track.json)
-        const cur = track.getLatLngs();
-        cur.push([p.lat, p.lon]);
-        if (cur.length > 720) cur.shift(); // UI-side cap ~1h at 5s cadence
-        track.setLatLngs(cur);
-
-        // Link line
-        if (linkLine) map.removeLayer(linkLine);
-        linkLine = L.polyline([[homeLat, homeLon], [p.lat, p.lon]], {
-          color: "green", weight: 1, dashArray: "4,6"
-        }).addTo(map);
-
-        // Telemetry
-        const dist = haversineKm({ lat: homeLat, lon: homeLon }, p).toFixed(1);
-        const vel = (j.iss.vel !== undefined && j.iss.vel === j.iss.vel) ? Number(j.iss.vel).toFixed(0) : "---";
-        const dir = (j.iss.dir !== undefined) ? j.iss.dir : "---";
-
-        const tel = document.getElementById("telemetry");
-        if (tel) {
-          tel.innerHTML = `
-            <table class="table table-sm mb-0">
-              <tr><th>ISS Lat</th><td>${p.lat.toFixed(4)}</td></tr>
-              <tr><th>ISS Lon</th><td>${p.lon.toFixed(4)}</td></tr>
-              <tr><th>Distance</th><td>${dist} km</td></tr>
-              <tr><th>Velocity</th><td>${vel} km/h</td></tr>
-              <tr><th>Direction</th><td>${dir}</td></tr>
-              <tr><th>Home</th><td>${homeLat.toFixed(4)}, ${homeLon.toFixed(4)}</td></tr>
-            </table>`;
-        }
-      } catch {
-        // ignore transient fetch errors
-      }
-    }
-
-    // ---- 5) Buttons ----
-    const btnHome = document.getElementById("centerHome");
-    if (btnHome) btnHome.onclick = () => map.setView([homeLat, homeLon], 4);
-
-    const btnIss = document.getElementById("centerIss");
-    if (btnIss) btnIss.onclick = () => { if (issMarker) map.setView(issMarker.getLatLng(), 4); };
-
-    // ---- 6) Go ----
-    await loadTrackOnce();  // draw persisted path (if firmware serves it)
-    await pollIss();        // first immediate poll
-    setInterval(pollIss, 5000);
-
-    // Ensure tiles render if container resized
-    setTimeout(() => map.invalidateSize(), 200);
-  });
+  // Boot once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
-

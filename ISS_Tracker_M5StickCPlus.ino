@@ -1,160 +1,158 @@
 /*
-  ISS Tracker — M5StickC Plus (v1.14 full)
-  ----------------------------------------
-  - Serves static UI from LittleFS: / (index.html), /setup.html, /app.js, /setup.js, /styles.css
+  ISS Tracker — M5StickC Plus (v2.0)
+  -----------------------------------
+  - Uses a single API:
+      https://api.wheretheiss.at/v1/satellites/25544?units=kilometers  (HTTPS)
+  - Serves a static UI from LittleFS:
+      /index.html (map/telemetry), /setup.html, /app.js, /setup.js, /styles.css
   - JSON endpoints:
-      /iss.json      -> {haveFix, iss:{lat,lon,vel,dir,age_ms,dist_km}, home:{lat,lon}}
-      /config.json   -> {wifi:{ssid,ip}, home:{lat,lon}, loc_token:"..."}
-      /scan.json     -> {nets:[{ssid,rssi,locked}]}
-      /track.json    -> {points:[{t,lat,lon}, ...]}  // last ~1 hour
-      /loc           -> set home (GET ?lat&lon or POST {lat,lon}, optional Bearer token)
-      /savehome      -> legacy form (POST lat/lon) -> redirects
-      /save          -> save WiFi SSID/pass then reboot
-      /forget        -> forget WiFi then reboot
-
-  - Live polling of ISS every 5s from open-notify API (simple demo)
-  - Persists track to LittleFS (newline-delimited JSON), keeps RAM ring buffer
-  - Draggable Home marker handled by frontend; this exposes /loc to persist
-
-  Board:  M5Stick-C Plus
-  Libs:   M5StickCPlus, ArduinoJson, WiFi, HTTPClient, WebServer, ESPmDNS,
-          Preferences, DNSServer, LittleFS
+      /iss.json         -> live telemetry + derived values
+      /track.json?mins= -> persisted past path (reads track.ndjson)
+      /predict.json     -> 1-hour prediction based on recent motion
+      /scan.json        -> nearby Wi-Fi list
+      /config.json      -> device + home info
+      /loc (GET/POST)   -> set/persist new home
+  - Track persistence:
+      On every good ISS sample, append {"ts":<unix>,"lat":..,"lon":..}\n to /track.ndjson.
+      Reads the last N minutes on demand; no RAM history required across reboots.
+  - Draggable home (handled by UI -> /loc)
+  - M5 on-device screen is still updated.
 */
 
 #include <M5StickCPlus.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>  // << REQUIRED for HTTPS
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
 #include <DNSServer.h>
+#include <LittleFS.h>
 #include <ESP.h>
 #include <math.h>
-#include <LittleFS.h>
+#include "user_settings.h"  // WIFI_SSID, WIFI_PASSWORD, HOME_LAT, HOME_LON, LOC_TOKEN (empty OK)
 
-#include "user_settings.h"  // WIFI_SSID, WIFI_PASSWORD, HOME_LAT, HOME_LON, LOC_TOKEN (may be "")
-
-// =========================== CONFIG ===========================
+// ----------------- CONFIG -----------------
 constexpr double RADIUS_KM = 800.0;
-constexpr double HYST_KM = 200.0;  // re-arm once outside RADIUS_KM + HYST_KM
+constexpr double HYST_KM = 200.0;
 constexpr uint32_t FETCH_INTERVAL_MS = 5000;
+constexpr uint16_t MIN_BEEP_PERIOD_MS = 220;
+constexpr uint16_t MAX_BEEP_PERIOD_MS = 2800;
 
 constexpr int BUZZER_PIN = 26;
 constexpr uint8_t BUZZER_RES_BITS = 10;
 constexpr uint32_t BUZZER_INIT_HZ = 4000;
 
-constexpr uint16_t WIFI_BEEP_HZ = 1400;
-constexpr uint16_t WIFI_BEEP_MS = 90;
-constexpr uint16_t ISS_BEEP_HZ = 2300;  // proximity beep tone
-constexpr uint16_t ISS_BEEP_MS = 120;   // each beep ON duration
-
-// Continuous-beep cadence (closer = faster)
-constexpr uint16_t MIN_BEEP_PERIOD_MS = 220;   // at 0 km
-constexpr uint16_t MAX_BEEP_PERIOD_MS = 2800;  // at RADIUS_KM
-
-// Onboard LED (M5StickC Plus): GPIO 10, active-low
-constexpr int LED_PIN = 10;
+constexpr int LED_PIN = 10;  // active-low on M5StickC Plus
 constexpr bool LED_ACTIVE_LOW = true;
 
-// Wi-Fi portal behavior
+constexpr uint16_t WIFI_BEEP_HZ = 1400;
+constexpr uint16_t WIFI_BEEP_MS = 90;
+constexpr uint16_t ISS_BEEP_HZ = 2300;
+constexpr uint16_t ISS_BEEP_MS = 120;
+
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
 constexpr uint32_t WIFI_STALE_REVERT_MS = 45000;
 
 static const char* MDNS_NAME = "iss";
 
-// ISS API (demo)
-static const char* ISS_URL = "http://api.open-notify.org/iss-now.json";
+// ---- API ----
+static const char* ISS_URL = "https://api.wheretheiss.at/v1/satellites/25544?units=kilometers";
 
-// ============ TRACK PERSISTENCE (RAM + LittleFS) ============
-struct TrackPt {
-  uint32_t t;
-  float lat;
-  float lon;
-};                                          // t = millis() of sample
-static const uint16_t TRACK_RAM_MAX = 900;  // ~75 min @5s
-static TrackPt trackBuf[TRACK_RAM_MAX];
-static uint16_t trackCount = 0;
+// ---- Files ----
+static const char* TRACK_FILE = "/track.ndjson";  // each line: {"ts":<unix>,"lat":<deg>,"lon":<deg>}
 
-static const char* TRACK_FILE = "/track.log";  // newline-delimited JSON
-static const uint32_t TRACK_FLUSH_MS = 15000;  // flush latest point every 15s
-static uint32_t lastTrackFlush = 0;
-
-// =========================== STATE ===========================
-uint32_t lastFetch = 0;
-bool soundEnabled = true;
-
-double issLat = 0.0, issLon = 0.0;
-double prevLat = NAN, prevLon = NAN;
-uint32_t prevSampleMs = 0;
-
-double velKmh = NAN;     // latest computed velocity (km/h)
-double velKmhEma = NAN;  // smoothed velocity
-bool velValid = false;
-String velDir8 = "";  // 8-point direction label for velocity
-
-bool haveFix = false;       // true once we have at least one ISS sample
-double homeLat = HOME_LAT;  // dynamic home (from /loc or NVS)
-double homeLon = HOME_LON;
-
-bool wasClose = false;  // hysteresis latch
-
-// LED + beep scheduler
-bool ledState = false;
-bool ledBlinking = false;
-uint32_t ledLastToggle = 0;
-
-bool contBeepActive = false;
-uint32_t nextBeepAtMs = 0;
-uint32_t beepOffAtMs = 0;
-
-// Wi-Fi state
-enum class WifiState { STA_OK,
-                       PORTAL };
-WifiState wifiState = WifiState::PORTAL;
-uint32_t lastStaOkMs = 0;
-
-// Services
+// ----------------- STATE -----------------
 WebServer server(80);
 Preferences prefs;
 DNSServer dns;
 
-// =================== HELPERS: math ===================
+enum class WifiState { STA_OK,
+                       PORTAL };
+WifiState wifiState = WifiState::PORTAL;
+
+uint32_t lastFetch = 0;
+uint32_t lastStaOkMs = 0;
+bool soundEnabled = true;
+
+double issLat = NAN, issLon = NAN;  // latest
+double issAltKm = NAN;              // altitude
+double issVelKmh = NAN;             // instantaneous
+double issVelEma = NAN;             // smoothed
+bool issVelValid = false;
+String issVis = "";      // visibility
+double issFootKm = NAN;  // footprint (km)
+double solarLat = NAN, solarLon = NAN;
+uint32_t issTs = 0;
+
+double prevLat = NAN, prevLon = NAN;
+uint32_t prevSampleMs = 0;
+
+double homeLat = HOME_LAT;
+double homeLon = HOME_LON;
+
+bool haveFix = false;
+bool wasClose = false;
+
+bool ledState = false, ledBlinking = false, contBeepActive = false;
+uint32_t nextBeepAtMs = 0, beepOffAtMs = 0;
+
+// ----------------- MATH HELPERS -----------------
 static inline double toRad(double deg) {
   return deg * M_PI / 180.0;
 }
+static inline double toDeg(double rad) {
+  return rad * 180.0 / M_PI;
+}
 
 double greatCircleKm(double lat1, double lon1, double lat2, double lon2) {
-  const double R = 6371.0;  // km
+  const double R = 6371.0;
   const double dLat = toRad(lat2 - lat1);
   const double dLon = toRad(lon2 - lon1);
-  const double a = sin(dLat * 0.5) * sin(dLat * 0.5)
-                   + cos(toRad(lat1)) * cos(toRad(lat2))
-                       * sin(dLon * 0.5) * sin(dLon * 0.5);
+  const double a = sin(dLat / 2) * sin(dLat / 2)
+                   + cos(toRad(lat1)) * cos(toRad(lat2)) * sin(dLon / 2) * sin(dLon / 2);
   const double c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
   return R * c;
 }
 
-// Initial bearing (deg) from (lat1,lon1) -> (lat2,lon2)
 double initialBearingDeg(double lat1, double lon1, double lat2, double lon2) {
   double phi1 = toRad(lat1), phi2 = toRad(lat2);
   double dLon = toRad(lon2 - lon1);
   double y = sin(dLon) * cos(phi2);
   double x = cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(dLon);
-  double th = atan2(y, x);         // -pi..pi
-  double deg = th * 180.0 / M_PI;  // -180..180
+  double th = atan2(y, x);
+  double deg = toDeg(th);
   if (deg < 0) deg += 360.0;
   return deg;
 }
 
-// 8-point compass label
 String bearingTo8(double deg) {
-  static const char* dir8[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
-  int idx = (int)floor((deg + 22.5) / 45.0) % 8;
-  return String(dir8[idx]);
+  static const char* d[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+  int i = (int)floor((deg + 22.5) / 45.0) % 8;
+  return String(d[i]);
 }
 
-// =================== HELPERS: LED / BUZZER ===================
+// Move a point along a great circle by distance(km) and bearing(deg)
+void movePoint(double lat, double lon, double distKm, double bearingDeg, double& outLat, double& outLon) {
+  const double R = 6371.0;
+  double δ = distKm / R;
+  double θ = toRad(bearingDeg);
+  double φ1 = toRad(lat), λ1 = toRad(lon);
+  double sinφ1 = sin(φ1), cosφ1 = cos(φ1);
+  double sinδ = sin(δ), cosδ = cos(δ);
+
+  double sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * cos(θ);
+  double φ2 = asin(sinφ2);
+  double y = sin(θ) * sinδ * cosφ1;
+  double x = cosδ - sinφ1 * sinφ2;
+  double λ2 = λ1 + atan2(y, x);
+
+  outLat = toDeg(φ2);
+  outLon = fmod(toDeg(λ2) + 540.0, 360.0) - 180.0;  // wrap
+}
+
+// ----------------- LED/BUZZER -----------------
 inline void ledWrite(bool on) {
   digitalWrite(LED_PIN, (LED_ACTIVE_LOW ? (on ? LOW : HIGH) : (on ? HIGH : LOW)));
 }
@@ -180,25 +178,25 @@ static inline void toneStop() {
   ledcWriteTone(BUZZER_PIN, 0);
 }
 
-void beep(uint16_t freqHz, uint16_t ms) {
+void beep(uint16_t hz, uint16_t ms) {
   if (!soundEnabled) return;
   buzzerAttachIfNeeded();
-  toneStart(freqHz);
+  toneStart(hz);
   delay(ms);
   toneStop();
   buzzerDetachIfNeeded();
 }
 
-// Continuous proximity beep scheduler
-uint32_t periodForDistance(double distKm) {
-  if (distKm < 0) distKm = 0;
-  if (distKm > RADIUS_KM) distKm = RADIUS_KM;
-  double t = distKm / RADIUS_KM;  // 0 near, 1 at edge
-  double period = MIN_BEEP_PERIOD_MS + t * (MAX_BEEP_PERIOD_MS - MIN_BEEP_PERIOD_MS);
-  if (period < MIN_BEEP_PERIOD_MS) period = MIN_BEEP_PERIOD_MS;
-  if (period > MAX_BEEP_PERIOD_MS) period = MAX_BEEP_PERIOD_MS;
-  return (uint32_t)period;
+uint32_t periodForDistance(double d) {
+  if (d < 0) d = 0;
+  if (d > RADIUS_KM) d = RADIUS_KM;
+  double t = d / RADIUS_KM;
+  double p = MIN_BEEP_PERIOD_MS + t * (MAX_BEEP_PERIOD_MS - MIN_BEEP_PERIOD_MS);
+  if (p < MIN_BEEP_PERIOD_MS) p = MIN_BEEP_PERIOD_MS;
+  if (p > MAX_BEEP_PERIOD_MS) p = MAX_BEEP_PERIOD_MS;
+  return (uint32_t)p;
 }
+
 void startContinuousBeepNow() {
   if (!soundEnabled) return;
   buzzerAttachIfNeeded();
@@ -212,7 +210,7 @@ void stopContinuousBeepNow() {
   contBeepActive = false;
 }
 
-// =================== HELPERS: M5 UI ===================
+// ----------------- M5 UI -----------------
 void drawHeader() {
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setTextColor(WHITE, BLACK);
@@ -235,8 +233,9 @@ void drawValues(double lat, double lon, double distKm, bool showVel, double vKmh
   M5.Lcd.drawFloat(lon, 4, 65, y);
   y += 22;
 
+  // Velocity line + Altitude afterwards
   M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.drawString("Vol:", 4, y);
+  M5.Lcd.drawString("Vel:", 4, y);
   if (showVel) {
     M5.Lcd.drawFloat(vKmh, 1, 65, y);
     M5.Lcd.drawString("km/h", 155, y);
@@ -245,7 +244,7 @@ void drawValues(double lat, double lon, double distKm, bool showVel, double vKmh
     M5.Lcd.drawString("---", 65, y);
   }
   y += 22;
-
+  
   M5.Lcd.setTextColor(CYAN, BLACK);
   M5.Lcd.drawString("Dist:", 4, y);
   M5.Lcd.drawFloat(distKm, 1, 65, y);
@@ -253,42 +252,32 @@ void drawValues(double lat, double lon, double distKm, bool showVel, double vKmh
 }
 
 void drawProximityBar(double distKm) {
-  const int barX = 4;
-  const int barY = 116;
-  const int barW = M5.Lcd.width() - 8;
-  const int barH = 18;
-
+  const int barX = 4, barY = 116, barW = M5.Lcd.width() - 8, barH = 18;
   String status;
   uint16_t colFill;
   if (distKm <= RADIUS_KM) {
     status = "Close";
     colFill = GREEN;
-  } else if (distKm <= 1200.0) {
+  } else if (distKm <= 1200) {
     status = "Near";
     colFill = YELLOW;
-  } else if (distKm <= 1600.0) {
+  } else if (distKm <= 1600) {
     status = "Mid";
     colFill = ORANGE;
-  } else if (distKm <= 2000.0) {
-    status = "Far";
-    colFill = RED;
   } else {
-    status = "Distant";
+    status = "Far";
     colFill = RED;
   }
 
   M5.Lcd.drawRect(barX, barY, barW, barH, WHITE);
-
   double maxKm = 2000.0;
-  int fillw = (distKm > 1600.0) ? (barW - 2)
-                                : (int)((maxKm - max(0.0, distKm)) / maxKm * (barW - 2));
+  int fillw = (distKm > 1600.0) ? (barW - 2) : (int)((maxKm - max(0.0, distKm)) / maxKm * (barW - 2));
   M5.Lcd.fillRect(barX + 1, barY + 1, fillw, barH - 2, colFill);
 
   for (int km = 500; km < 2000; km += 500) {
     int tx = barX + 1 + (int)((maxKm - km) / maxKm * (barW - 2));
     M5.Lcd.drawLine(tx, barY, tx, barY + barH, DARKGREY);
   }
-
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(WHITE, BLACK);
   int statusY = barY + (barH - 8) / 2;
@@ -299,7 +288,6 @@ void drawMiniMap(double curLat, double curLon) {
   const bool SHOW_MINIMAP = true;
   if (!SHOW_MINIMAP) return;
   const int mapX = 170, mapY = 28, mapW = 66, mapH = 44;
-
   M5.Lcd.fillRect(mapX, mapY, mapW, mapH, TFT_NAVY);
   M5.Lcd.drawRect(mapX, mapY, mapW, mapH, DARKGREY);
 
@@ -311,7 +299,6 @@ void drawMiniMap(double curLat, double curLon) {
     int y = mapY + (int)((90.0 - (double)lat) / 180.0 * (mapH - 1));
     M5.Lcd.drawLine(mapX, y, mapX + mapW - 1, y, DARKGREY);
   }
-
   auto pxX = [&](double lon) -> int {
     double L = fmod((lon + 540.0), 360.0) - 180.0;
     return mapX + (int)((L + 180.0) / 360.0 * (mapW - 1));
@@ -326,7 +313,6 @@ void drawMiniMap(double curLat, double curLon) {
   int hx = pxX(homeLon), hy = pxY(homeLat);
   M5.Lcd.fillCircle(hx, hy, 2, GREEN);
   M5.Lcd.drawPixel(hx, hy, WHITE);
-
   int ix = pxX(curLon), iy = pxY(curLat);
   M5.Lcd.fillCircle(ix, iy, 2, YELLOW);
   M5.Lcd.drawPixel(ix, iy, WHITE);
@@ -336,29 +322,27 @@ void drawMiniMap(double curLat, double curLon) {
   M5.Lcd.drawString("MAP", mapX + 2, mapY + 2);
 }
 
-// =================== PERSISTENCE (NVS) ===================
+// ----------------- PERSISTENCE -----------------
 void loadHomeFromNVS() {
   prefs.begin("iss", true);
-  double lat = prefs.getDouble("homeLat", NAN);
-  double lon = prefs.getDouble("homeLon", NAN);
+  double la = prefs.getDouble("homeLat", NAN), lo = prefs.getDouble("homeLon", NAN);
   prefs.end();
-  if (!isnan(lat) && !isnan(lon)) {
-    homeLat = lat;
-    homeLon = lon;
+  if (!isnan(la) && !isnan(lo)) {
+    homeLat = la;
+    homeLon = lo;
   }
 }
-void saveHomeToNVS(double lat, double lon) {
+void saveHomeToNVS(double la, double lo) {
   prefs.begin("iss", false);
-  prefs.putDouble("homeLat", lat);
-  prefs.putDouble("homeLon", lon);
+  prefs.putDouble("homeLat", la);
+  prefs.putDouble("homeLon", lo);
   prefs.end();
 }
 
 // Wi-Fi creds
 bool loadWifiCreds(String& ssid, String& pass) {
   prefs.begin("wifi", true);
-  String s = prefs.getString("ssid", "");
-  String p = prefs.getString("pass", "");
+  String s = prefs.getString("ssid", ""), p = prefs.getString("pass", "");
   prefs.end();
   if (s.length()) {
     ssid = s;
@@ -367,10 +351,10 @@ bool loadWifiCreds(String& ssid, String& pass) {
   }
   return false;
 }
-void saveWifiCreds(const String& ssid, const String& pass) {
+void saveWifiCreds(const String& s, const String& p) {
   prefs.begin("wifi", false);
-  prefs.putString("ssid", ssid);
-  prefs.putString("pass", pass);
+  prefs.putString("ssid", s);
+  prefs.putString("pass", p);
   prefs.end();
 }
 void forgetWifiCreds() {
@@ -380,17 +364,34 @@ void forgetWifiCreds() {
   prefs.end();
 }
 
-// Auth helper for /loc
+// ----------------- AUTH -----------------
 bool tokenOk(const String& bearerOrQuery) {
   if (LOC_TOKEN[0] == 0) return true;
   return bearerOrQuery == LOC_TOKEN;
 }
 
-// =================== ISS Networking ===================
+// ----------------- TRACK PERSISTENCE (NDJSON) -----------------
+void appendTrackPoint(uint32_t ts, double lat, double lon) {
+  File f = LittleFS.open(TRACK_FILE, "a");
+  if (!f) return;
+  DynamicJsonDocument dj(96);
+  dj["ts"] = ts;
+  dj["lat"] = lat;
+  dj["lon"] = lon;
+  String line;
+  serializeJson(dj, line);
+  line += "\n";
+  f.print(line);
+  f.close();
+}
+
+// ----------------- ISS NETWORKING -----------------
 bool fetchISS(double& outLat, double& outLon) {
-  WiFiClient client;
+  WiFiClientSecure client;
+  client.setInsecure();  // HTTPS without certificate validation
+
   HTTPClient http;
-  http.setTimeout(5000);
+  http.setTimeout(7000);
   if (!http.begin(client, ISS_URL)) return false;
 
   bool ok = false;
@@ -399,16 +400,25 @@ bool fetchISS(double& outLat, double& outLon) {
     DynamicJsonDocument doc(1024);
     DeserializationError err = deserializeJson(doc, http.getStream());
     if (!err) {
-      outLat = atof(doc["iss_position"]["latitude"] | "0");
-      outLon = atof(doc["iss_position"]["longitude"] | "0");
-      ok = true;
+      outLat = doc["latitude"] | NAN;
+      outLon = doc["longitude"] | NAN;
+
+      issAltKm = doc["altitude"] | NAN;
+      issVelKmh = doc["velocity"] | NAN;
+      issVis = (const char*)(doc["visibility"] | "");
+      issFootKm = doc["footprint"] | NAN;
+      issTs = doc["timestamp"] | (uint32_t)0;
+      solarLat = doc["solar_lat"] | NAN;
+      solarLon = doc["solar_lon"] | NAN;
+
+      ok = !(isnan(outLat) || isnan(outLon));
     }
   }
   http.end();
   return ok;
 }
 
-// =================== AP/Portal helpers ===================
+// ----------------- WIFI/AP -----------------
 String apSSID() {
   uint8_t mac[6];
   WiFi.macAddress(mac);
@@ -424,7 +434,7 @@ void drawPortalBanner(IPAddress apIp) {
   M5.Lcd.drawString(s, 4, 150);
 }
 
-// =================== LittleFS Static ===================
+// ----------------- STATIC FILE SERVER -----------------
 String contentTypeFor(const String& path) {
   if (path.endsWith(".html")) return "text/html; charset=utf-8";
   if (path.endsWith(".css")) return "text/css; charset=utf-8";
@@ -435,6 +445,7 @@ String contentTypeFor(const String& path) {
   if (path.endsWith(".svg")) return "image/svg+xml";
   return "text/plain; charset=utf-8";
 }
+
 bool serveStaticFile(String path) {
   String gz = path + ".gz";
   if (LittleFS.exists(gz)) {
@@ -455,122 +466,146 @@ bool serveStaticFile(String path) {
   return true;
 }
 
-// =================== TRACK: RAM + LittleFS ===================
-void trackPush(uint32_t t, double lat, double lon) {
-  if (trackCount < TRACK_RAM_MAX) {
-    trackBuf[trackCount++] = { t, (float)lat, (float)lon };
-  } else {
-    // ring: shift left 1 (small buffer, simple)
-    memmove(trackBuf, trackBuf + 1, sizeof(TrackPt) * (TRACK_RAM_MAX - 1));
-    trackBuf[TRACK_RAM_MAX - 1] = { t, (float)lat, (float)lon };
-  }
-}
-
-void trackFlushIfDue() {
-  uint32_t now = millis();
-  if (now - lastTrackFlush < TRACK_FLUSH_MS) return;
-  lastTrackFlush = now;
-  if (trackCount == 0) return;
-
-  // append the last point only
-  TrackPt& p = trackBuf[trackCount - 1];
-  File f = LittleFS.open(TRACK_FILE, FILE_APPEND);
-  if (!f) return;
-  StaticJsonDocument<96> doc;
-  doc["t"] = p.t;
-  doc["lat"] = p.lat;
-  doc["lon"] = p.lon;
-  serializeJson(doc, f);
-  f.print('\n');
-  f.close();
-}
-
-void handleTrackJson() {
-  // Collect last ~1 hour by uptime-ms window from file + RAM
-  const uint32_t NOW = millis();
-  const uint32_t WINDOW = 3600UL * 1000UL;  // 1 hour
-
-  // We’ll keep a bounded list
-  const size_t MAX_PTS = 2000;
-  static TrackPt tmp[MAX_PTS];
-  size_t n = 0;
-
-  if (LittleFS.exists(TRACK_FILE)) {
-    File f = LittleFS.open(TRACK_FILE, FILE_READ);
-    if (f) {
-      while (f.available() && n < MAX_PTS) {
-        String line = f.readStringUntil('\n');
-        StaticJsonDocument<96> d;
-        if (deserializeJson(d, line) == DeserializationError::Ok) {
-          uint32_t t = d["t"] | 0;
-          double la = d["lat"] | NAN, lo = d["lon"] | NAN;
-          if (!isnan(la) && !isnan(lo)) {
-            if (NOW - t <= WINDOW) {
-              tmp[n++] = { t, (float)la, (float)lo };
-            }
-          }
-        }
-      }
-      f.close();
-    }
-  }
-
-  // Merge RAM tail (already ~last hour by size)
-  uint16_t start = (trackCount > MAX_PTS ? trackCount - MAX_PTS : 0);
-  for (uint16_t i = start; i < trackCount && n < MAX_PTS; ++i) {
-    if (NOW - trackBuf[i].t <= WINDOW) {
-      tmp[n++] = trackBuf[i];
-    }
-  }
-
-  // Emit JSON
-  String out;
-  {
-    DynamicJsonDocument doc(16384);
-    JsonArray arr = doc.createNestedArray("points");
-    size_t begin = (n > MAX_PTS ? n - MAX_PTS : 0);
-    for (size_t i = begin; i < n; ++i) {
-      JsonObject o = arr.createNestedObject();
-      o["t"] = tmp[i].t;
-      o["lat"] = tmp[i].lat;
-      o["lon"] = tmp[i].lon;
-    }
-    serializeJson(doc, out);
-  }
-  server.sendHeader("Cache-Control", "no-store");
-  server.send(200, "application/json", out);
-}
-
-// =================== JSON Endpoints ===================
+// ----------------- JSON ENDPOINTS -----------------
 void handleIssJson() {
-  DynamicJsonDocument doc(256);
+  DynamicJsonDocument doc(512);
   doc["haveFix"] = haveFix;
+
   if (haveFix) {
-    doc["iss"]["lat"] = issLat;
-    doc["iss"]["lon"] = issLon;
-    doc["iss"]["vel"] = velKmhEma;
-    doc["iss"]["dir"] = velDir8;
-    doc["iss"]["age_ms"] = (uint32_t)(millis() - prevSampleMs);
-    doc["iss"]["dist_km"] = greatCircleKm(homeLat, homeLon, issLat, issLon);
+    JsonObject iss = doc.createNestedObject("iss");
+    iss["lat"] = issLat;
+    iss["lon"] = issLon;
+    iss["alt"] = issAltKm;
+    // publish both raw and EMA velocity
+    if (issVelValid) iss["vel"] = issVelEma;
+    iss["vel_raw"] = issVelKmh;
+
+    // Direction only if we have prev sample
+    if (!isnan(prevLat) && !isnan(prevLon)) {
+      double brg = initialBearingDeg(prevLat, prevLon, issLat, issLon);
+      iss["dir"] = bearingTo8(brg);
+    }
+
+    iss["age_ms"] = (uint32_t)(millis() - prevSampleMs);
+    iss["vis"] = issVis;
+    iss["foot_km"] = issFootKm;
+    iss["ts"] = issTs;
+    iss["solar_lat"] = solarLat;
+    iss["solar_lon"] = solarLon;
+
+    double dist = greatCircleKm(homeLat, homeLon, issLat, issLon);
+    iss["dist_km"] = dist;
   }
-  doc["home"]["lat"] = homeLat;
-  doc["home"]["lon"] = homeLon;
+
+  JsonObject home = doc.createNestedObject("home");
+  home["lat"] = homeLat;
+  home["lon"] = homeLon;
+
   String out;
   serializeJson(doc, out);
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", out);
 }
 
+// Return last N minutes of track from NDJSON
+void handleTrackJson() {
+  int mins = 60;
+  if (server.hasArg("mins")) {
+    int m = server.arg("mins").toInt();
+    if (m > 0 && m <= 1440) mins = m;
+  }
+  uint32_t cutoff = (millis() / 1000) + (issTs ? 0 : 0);  // prefer file timestamps; no offset needed
+  if (issTs) cutoff = issTs;                              // current unix ts
+  if (cutoff > (uint32_t)mins * 60) cutoff -= (uint32_t)mins * 60;
+  else cutoff = 0;
+
+  String out = "[";
+  bool first = true;
+
+  File f = LittleFS.open(TRACK_FILE, "r");
+  if (f) {
+    while (f.available()) {
+      String line = f.readStringUntil('\n');
+      if (line.length() < 8) continue;
+      DynamicJsonDocument dj(96);
+      if (deserializeJson(dj, line) == DeserializationError::Ok) {
+        uint32_t ts = dj["ts"] | (uint32_t)0;
+        double la = dj["lat"] | NAN;
+        double lo = dj["lon"] | NAN;
+        if (ts >= cutoff && !isnan(la) && !isnan(lo)) {
+          if (!first) out += ",";
+          first = false;
+          DynamicJsonDocument row(64);
+          row["ts"] = ts;
+          row["lat"] = la;
+          row["lon"] = lo;
+          String s;
+          serializeJson(row, s);
+          out += s;
+        }
+      }
+    }
+    f.close();
+  }
+  out += "]";
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", out);
+}
+
+// Very light 1-hour ground-track prediction based on recent motion vector
+void handlePredictJson() {
+  // Need two samples to estimate motion
+  if (isnan(prevLat) || isnan(prevLon) || isnan(issLat) || isnan(issLon)) {
+    server.send(200, "application/json", "[]");
+    return;
+  }
+  // Bearing from last two points
+  double brg = initialBearingDeg(prevLat, prevLon, issLat, issLon);
+
+  // Estimate ground speed (km/h) from last interval if available; else fall back to raw velocity * cos(lat) as crude proj
+  double gspeed = NAN;
+  if (prevSampleMs) {
+    uint32_t dtMs = millis() - prevSampleMs;
+    if (dtMs >= 1000) {
+      double dKm = greatCircleKm(prevLat, prevLon, issLat, issLon);
+      double hours = (double)dtMs / 3600000.0;
+      if (hours > 0) gspeed = dKm / hours;
+    }
+  }
+  if (isnan(gspeed)) {
+    // crude: project orbital speed to ground speed; ignore winds, etc.
+    if (!isnan(issVelKmh)) gspeed = issVelKmh * 0.85;  // heuristic
+    else gspeed = 27500.0 * 0.85;
+  }
+
+  // Produce points every 60s for 60 minutes along great circle
+  String out = "[";
+  bool first = true;
+  double lat = issLat, lon = issLon;
+  for (int s = 60; s <= 3600; s += 60) {
+    double distKm = gspeed * (s / 3600.0);
+    double yl, yo;
+    movePoint(issLat, issLon, distKm, brg, yl, yo);
+    if (!first) out += ",";
+    first = false;
+    DynamicJsonDocument row(64);
+    row["lat"] = yl;
+    row["lon"] = yo;
+    String js;
+    serializeJson(row, js);
+    out += js;
+  }
+  out += "]";
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", out);
+}
+
 void handleConfigJson() {
   DynamicJsonDocument doc(192);
-  JsonObject wifi = doc.createNestedObject("wifi");
-  wifi["ssid"] = WiFi.SSID();
-  wifi["ip"] = WiFi.localIP().toString();
-  JsonObject home = doc.createNestedObject("home");
-  home["lat"] = homeLat;
-  home["lon"] = homeLon;
-  // Expose token to client so it can POST /loc with Bearer (optional)
-  doc["loc_token"] = String(LOC_TOKEN);
+  doc["wifi"]["ssid"] = WiFi.SSID();
+  doc["wifi"]["ip"] = WiFi.localIP().toString();
+  doc["home"]["lat"] = homeLat;
+  doc["home"]["lon"] = homeLon;
   String out;
   serializeJson(doc, out);
   server.sendHeader("Cache-Control", "no-store");
@@ -594,31 +629,7 @@ void handleScanJson() {
   server.send(200, "application/json", out);
 }
 
-// Actions
-void handleSave() {
-  String ssid = server.hasArg("ssid") ? server.arg("ssid") : "";
-  String pass = server.hasArg("pass") ? server.arg("pass") : "";
-  if (!ssid.length()) {
-    server.send(400, "text/plain", "SSID required");
-    return;
-  }
-  saveWifiCreds(ssid, pass);
-  server.sendHeader("Cache-Control", "no-store");
-  server.send(200, "text/html; charset=utf-8",
-              "<meta http-equiv='refresh' content='3;url=/'/>Saved. Rebooting…");
-  delay(750);
-  ESP.restart();
-}
-void handleForget() {
-  forgetWifiCreds();
-  server.sendHeader("Cache-Control", "no-store");
-  server.send(200, "text/html; charset=utf-8",
-              "<meta http-equiv='refresh' content='3;url=/setup.html'/>Forgotten. Rebooting…");
-  delay(750);
-  ESP.restart();
-}
-
-// /loc endpoint — GET ?lat&lon&token=... or POST JSON {lat,lon,token?}
+// ----- legacy /loc and /savehome -----
 void handleLoc() {
   String tok = "";
   if (server.hasHeader("Authorization")) {
@@ -635,7 +646,7 @@ void handleLoc() {
   if (server.method() == HTTP_GET) {
     if (server.hasArg("lat")) lat = server.arg("lat").toDouble();
     if (server.hasArg("lon")) lon = server.arg("lon").toDouble();
-  } else if (server.method() == HTTP_POST) {
+  } else {
     String body = server.arg("plain");
     DynamicJsonDocument doc(256);
     if (deserializeJson(doc, body) == DeserializationError::Ok) {
@@ -674,21 +685,25 @@ void handleSaveHome() {
   server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='1;url=/'/>Saved.");
 }
 
-// =================== Static routes ===================
+// ----------------- STATIC ROUTES -----------------
 void handleIndex() {
   if (!serveStaticFile("/index.html")) server.send(404, "text/plain", "index.html not found");
 }
 void handleSetupHtml() {
   if (!serveStaticFile("/setup.html")) server.send(404, "text/plain", "setup.html not found");
 }
+void handleHomeRedirect() {
+  server.sendHeader("Location", "/", true);
+  server.send(302, "text/plain", "");
+}
 
-// =================== Routes ===================
+// ----------------- ROUTE SETS -----------------
 void routesForPortal() {
-  server.on("/", HTTP_GET, handleSetupHtml);  // in portal, land on setup UI
-  server.on("/index.html", HTTP_GET, handleIndex);
+  server.on("/", HTTP_GET, handleSetupHtml);  // portal lands on setup
   server.on("/setup.html", HTTP_GET, handleSetupHtml);
+  server.on("/index.html", HTTP_GET, handleIndex);
+  server.on("/home", HTTP_GET, handleHomeRedirect);
 
-  // static assets
   server.on("/app.js", HTTP_GET, []() {
     serveStaticFile("/app.js");
   });
@@ -699,15 +714,33 @@ void routesForPortal() {
     serveStaticFile("/styles.css");
   });
 
-  // json/api
   server.on("/iss.json", HTTP_GET, handleIssJson);
+  server.on("/track.json", HTTP_GET, handleTrackJson);
+  server.on("/predict.json", HTTP_GET, handlePredictJson);
   server.on("/config.json", HTTP_GET, handleConfigJson);
   server.on("/scan.json", HTTP_GET, handleScanJson);
-  server.on("/track.json", HTTP_GET, handleTrackJson);
 
-  // actions
-  server.on("/save", HTTP_POST, handleSave);
-  server.on("/forget", HTTP_POST, handleForget);
+  server.on("/save", HTTP_POST, []() {
+    String ssid = server.hasArg("ssid") ? server.arg("ssid") : "";
+    String pass = server.hasArg("pass") ? server.arg("pass") : "";
+    if (!ssid.length()) {
+      server.send(400, "text/plain", "SSID required");
+      return;
+    }
+    saveWifiCreds(ssid, pass);
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='3;url=/'/>Saved. Rebooting…");
+    delay(750);
+    ESP.restart();
+  });
+  server.on("/forget", HTTP_POST, []() {
+    forgetWifiCreds();
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='3;url=/setup.html'/>Forgotten. Rebooting…");
+    delay(750);
+    ESP.restart();
+  });
+
   server.on("/loc", HTTP_ANY, handleLoc);
   server.on("/savehome", HTTP_POST, handleSaveHome);
 
@@ -717,9 +750,10 @@ void routesForPortal() {
 void routesForNormal() {
   server.on("/", HTTP_GET, handleIndex);
   server.on("/index.html", HTTP_GET, handleIndex);
+  server.on("/setup", HTTP_GET, handleSetupHtml);
   server.on("/setup.html", HTTP_GET, handleSetupHtml);
+  server.on("/home", HTTP_GET, handleHomeRedirect);
 
-  // static assets
   server.on("/app.js", HTTP_GET, []() {
     serveStaticFile("/app.js");
   });
@@ -730,15 +764,12 @@ void routesForNormal() {
     serveStaticFile("/styles.css");
   });
 
-  // json/api
   server.on("/iss.json", HTTP_GET, handleIssJson);
+  server.on("/track.json", HTTP_GET, handleTrackJson);
+  server.on("/predict.json", HTTP_GET, handlePredictJson);
   server.on("/config.json", HTTP_GET, handleConfigJson);
   server.on("/scan.json", HTTP_GET, handleScanJson);
-  server.on("/track.json", HTTP_GET, handleTrackJson);
 
-  // actions
-  server.on("/save", HTTP_POST, handleSave);
-  server.on("/forget", HTTP_POST, handleForget);
   server.on("/loc", HTTP_ANY, handleLoc);
   server.on("/savehome", HTTP_POST, handleSaveHome);
 
@@ -746,7 +777,7 @@ void routesForNormal() {
   if (MDNS.begin(MDNS_NAME)) { MDNS.addService("http", "tcp", 80); }
 }
 
-// =================== Wi-Fi control ===================
+// ----------------- WIFI CONTROL -----------------
 void startPortal() {
   WiFi.disconnect(true, true);
   WiFi.scanDelete();
@@ -779,7 +810,6 @@ bool tryConnectSTA() {
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(WHITE, BLACK);
   M5.Lcd.drawString("Wi-Fi...", 4, 150);
-
   while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_CONNECT_TIMEOUT_MS) {
     M5.Lcd.drawString(".", M5.Lcd.getCursorX() + 2, 150);
     delay(250);
@@ -800,7 +830,7 @@ bool tryConnectSTA() {
   return false;
 }
 
-// =================== Setup / Loop ===================
+// ----------------- SETUP/LOOP -----------------
 void setup() {
   M5.begin();
   M5.Axp.ScreenBreath(15);
@@ -811,32 +841,27 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   ledOff();
 
-  // FS mount
   if (!LittleFS.begin(true)) {
     M5.Lcd.setTextColor(RED, BLACK);
     M5.Lcd.drawString("LittleFS mount failed", 4, 130);
   }
 
   loadHomeFromNVS();
-  tryConnectSTA();  // STA first; falls back to portal if needed
+  tryConnectSTA();
   lastFetch = 0;
 }
 
 void loop() {
   M5.update();
-
-  // Web + DNS servicing
   server.handleClient();
   if (wifiState == WifiState::PORTAL) { dns.processNextRequest(); }
 
-  // Buttons
   if (M5.BtnA.wasPressed()) {
     soundEnabled = !soundEnabled;
     drawHeader();
   }
-  if (M5.BtnB.wasPressed()) { lastFetch = 0; }  // force ISS refresh
+  if (M5.BtnB.wasPressed()) { lastFetch = 0; }
 
-  // Auto-fallback to portal
   if (wifiState == WifiState::STA_OK) {
     if (WiFi.status() != WL_CONNECTED) {
       if ((millis() - lastStaOkMs) > WIFI_STALE_REVERT_MS) startPortal();
@@ -845,32 +870,25 @@ void loop() {
     }
   }
 
-  // ISS fetch only if STA OK
   const uint32_t now = millis();
   if (wifiState == WifiState::STA_OK && (now - lastFetch >= FETCH_INTERVAL_MS)) {
     lastFetch = now;
-
     double newLat, newLon;
     if (fetchISS(newLat, newLon)) {
-      // Velocity + direction
+      // velocity smoothing + direction
       if (haveFix && prevSampleMs != 0) {
         uint32_t dtMs = now - prevSampleMs;
         if (dtMs >= 1000) {
           double dKm = greatCircleKm(issLat, issLon, newLat, newLon);
           double hours = dtMs / 3600000.0;
           double v = (hours > 0.0) ? (dKm / hours) : NAN;
-
-          // ISS sanity (~27,600 km/h)
           if (!isnan(v) && v > 15000.0 && v < 40000.0) {
-            velKmh = v;
             const double alpha = 0.25;
-            if (velValid && !isnan(velKmhEma)) velKmhEma = alpha * velKmh + (1.0 - alpha) * velKmhEma;
+            if (issVelValid && !isnan(issVelEma)) issVelEma = alpha * issVelKmh + (1.0 - alpha) * issVelEma;
             else {
-              velKmhEma = velKmh;
-              velValid = true;
+              issVelEma = issVelKmh;
+              issVelValid = true;
             }
-            double brg = initialBearingDeg(issLat, issLon, newLat, newLon);
-            velDir8 = bearingTo8(brg);
           }
         }
       }
@@ -882,37 +900,31 @@ void loop() {
       issLon = newLon;
       haveFix = true;
 
-      // Track capture (RAM + lazy flush to file)
-      trackPush(now, issLat, issLon);
+      // persist current sample to track file
+      if (issTs != 0 && !isnan(issLat) && !isnan(issLon)) appendTrackPoint(issTs, issLat, issLon);
     }
-
     drawHeader();
   }
 
-  // Draw UI (persist last known)
   if (haveFix) {
     double dist = greatCircleKm(homeLat, homeLon, issLat, issLon);
-
-    drawValues(issLat, issLon, dist, velValid, velKmhEma, velDir8);
+    String dir8 = (!isnan(prevLat) && !isnan(prevLon)) ? bearingTo8(initialBearingDeg(prevLat, prevLon, issLat, issLon)) : "";
+    drawValues(issLat, issLon, dist, issVelValid, issVelEma, dir8);
     drawMiniMap(issLat, issLon);
     drawProximityBar(dist);
 
-    // Proximity logic (continuous beep + LED cadence) with hysteresis stop
     bool inClose = (dist <= RADIUS_KM);
     if (!wasClose && inClose) {
       wasClose = true;
-      nextBeepAtMs = 0;  // force immediate
+      nextBeepAtMs = 0;
     } else if (wasClose && dist >= (RADIUS_KM + HYST_KM)) {
       wasClose = false;
       stopContinuousBeepNow();
       ledBlinking = false;
       ledOff();
     }
-
     if (wasClose) {
       uint32_t period = periodForDistance(dist);
-
-      // Beep scheduling
       if (millis() >= nextBeepAtMs) {
         if (soundEnabled) startContinuousBeepNow();
         ledBlinking = true;
@@ -921,13 +933,10 @@ void loop() {
         nextBeepAtMs = millis() + period;
       }
       if (contBeepActive && millis() >= beepOffAtMs) stopContinuousBeepNow();
-
-      // LED: turn off mid-period for a flash, even if sound is off
       uint32_t cycleStart = nextBeepAtMs - period;
       if (millis() - cycleStart >= (period / 2)) ledOff();
     }
   } else {
-    // No ISS data yet
     M5.Lcd.setTextSize(2);
     M5.Lcd.setTextColor(ORANGE, BLACK);
     if (wifiState == WifiState::PORTAL) {
@@ -942,9 +951,6 @@ void loop() {
     ledBlinking = false;
     ledOff();
   }
-
-  // Periodic persistence flush
-  trackFlushIfDue();
 
   delay(10);
 }
