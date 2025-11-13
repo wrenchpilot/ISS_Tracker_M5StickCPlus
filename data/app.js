@@ -29,10 +29,11 @@
   // Home marker (draggable)
   let homeLat = 0, homeLon = 0;
   let homeMarker = null;
-  const homeIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+  const homeIcon = L.divIcon({
+    html: '<div style="font-size: 24px; text-align: center; line-height: 1;">📍</div>',
+    className: 'home-marker-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 24]
   });
 
   // Sun marker (sun emoji icon)
@@ -433,6 +434,9 @@
     });
     on($('centerIss'), 'click', () => {
       if (issMarker && issMarker.getLatLng) map.setView(issMarker.getLatLng(), 4);
+    });
+    on($('centerSun'), 'click', () => {
+      if (sunMarker && sunMarker.getLatLng) map.setView(sunMarker.getLatLng(), 4);
     });
     on($('fitAll'), 'click', () => fitAll());
 

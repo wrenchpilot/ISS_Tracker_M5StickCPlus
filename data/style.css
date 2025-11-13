@@ -228,24 +228,11 @@ body { background:#f8f9fa }
   border-bottom: 3px dotted #0d6efd;
 }
 
-.legend-indicator-circle {
+.legend-icon {
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+  font-size: 16px;
   margin-right: 6px;
-}
-
-.legend-indicator-circle.sun {
-  background: #ffd400;
-}
-
-.legend-indicator-circle.home {
-  background: #198754;
-}
-
-.legend-indicator-circle.iss {
-  background: #dc3545;
+  vertical-align: middle;
 }
 
 /* Device screenshot display */
