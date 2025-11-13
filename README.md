@@ -22,7 +22,7 @@ A compact ISS tracker project for the M5StickC Plus (ESP32-based) using a simple
 
 ## Screenshots
 
-Below are a couple of screenshots from the device and web UI. Copy these into `screenshots/` (they're already included in this repo) and view them inline here.
+Below are a couple of screenshots from the device and web UI.
 
 ![M5StickC Plus running the tracker](screenshots/m5stickcplus.png)
 
