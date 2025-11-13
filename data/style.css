@@ -76,9 +76,30 @@ body { background:#f8f9fa }
   min-height: 0;
 }
 
+.col-lg-9 .map-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.col-lg-3,
 .col-lg-4 {
   display: flex;
   flex-direction: column;
+}
+
+/* Responsive: on small screens, give map a fixed height */
+@media (max-width: 991.98px) {
+  #map {
+    height: 400px !important;
+  }
+  
+  .map-wrapper {
+    height: 400px !important;
+  }
+  
+  .row.match-height > [class*='col-'] {
+    display: block;
+  }
 }
 
 .leaflet-control-attribution {
@@ -232,6 +253,20 @@ body { background:#f8f9fa }
   max-width: 100%;
   height: auto;
   image-rendering: crisp-edges;
+}
+
+/* Live Telemetry card - fixed height for consistent layout */
+#telemetry {
+  min-height: 280px;
+}
+
+/* Device Display card - fixed height to prevent layout shifts */
+.card-body:has(.device-screen) {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Emoji marker icons - remove default Leaflet styling */
