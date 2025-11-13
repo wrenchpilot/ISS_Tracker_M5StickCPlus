@@ -1,0 +1,48 @@
+body { background:#f8f9fa }
+.leaflet-control-attribution { display:none }
+
+/* Nearby Networks table: keep it inside the card and wrap long SSIDs */
+#netTable { 
+  max-height: 50vh;      /* scroll instead of growing forever */
+  overflow: auto; 
+}
+
+#netTable .table {
+  table-layout: fixed;   /* honor column widths, enable ellipsis/wrap */
+  width: 100%;
+}
+
+/* Column widths: SSID gets the room, others stay compact */
+#netTable th:nth-child(1), #netTable td:nth-child(1) { width: 70%; }
+#netTable th:nth-child(2), #netTable td:nth-child(2) { width: 20%; }
+#netTable th:nth-child(3), #netTable td:nth-child(3) { width: 10%; }
+
+/* Wrap *anywhere* for absurdly long SSIDs */
+.ssid-wrap {
+  overflow-wrap: anywhere; /* modern, better than long-word only */
+  word-break: break-word;  /* fallback */
+}
+
+/* Optional: make the whole setup page a bit wider */
+.container.setup-max {
+  max-width: 1100px;
+}
+
+
+/* Map box */
+#map.map-box {
+  height: 520px;
+  border: 1px solid #ccc;
+  border-radius: .5rem;
+}
+
+/* SSID list: use all width and contain long strings */
+.ssid-select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 16rem;  /* visible height; combined with size attr */
+  overflow-x: hidden;
+}
+
+/* Make navbar brand not wrap weirdly on tiny screens */
+.navbar .navbar-brand { white-space: nowrap; }
