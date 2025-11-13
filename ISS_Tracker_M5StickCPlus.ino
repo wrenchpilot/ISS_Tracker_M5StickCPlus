@@ -4,7 +4,7 @@
   - Uses a single API:
       https://api.wheretheiss.at/v1/satellites/25544?units=kilometers  (HTTPS)
   - Serves a static UI from LittleFS:
-      /index.html (map/telemetry), /setup.html, /app.js, /setup.js, /styles.css
+      /index.html (map/telemetry), /setup.html, /app.js, /setup.js, /style.css
   - JSON endpoints:
       /iss.json         -> live telemetry + derived values
       /track.json?mins= -> persisted past path (reads track.ndjson)
@@ -1049,8 +1049,8 @@ void routesForPortal()
             { serveStaticFile("/app.js"); });
   server.on("/setup.js", HTTP_GET, []()
             { serveStaticFile("/setup.js"); });
-  server.on("/styles.css", HTTP_GET, []()
-            { serveStaticFile("/styles.css"); });
+  server.on("/style.css", HTTP_GET, []()
+            { serveStaticFile("/style.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);
@@ -1111,8 +1111,8 @@ void routesForNormal()
             { serveStaticFile("/app.js"); });
   server.on("/setup.js", HTTP_GET, []()
             { serveStaticFile("/setup.js"); });
-  server.on("/styles.css", HTTP_GET, []()
-            { serveStaticFile("/styles.css"); });
+  server.on("/style.css", HTTP_GET, []()
+            { serveStaticFile("/style.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);

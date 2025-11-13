@@ -424,9 +424,24 @@
     });
     on($('fitAll'), 'click', () => fitAll());
 
+    // Legend toggle
+    on($('legendToggle'), 'click', () => {
+      const panel = $('legendPanel');
+      if (panel) panel.classList.toggle('show');
+    });
+
     // Day/Night overlay (plugin URL is included in index.html)
     addOrRefreshTerminator();
     setInterval(addOrRefreshTerminator, 60 * 1000);
+
+    // Device screenshot refresh (every 5 seconds, cache-bust)
+    function refreshScreenshot() {
+      const img = $('deviceScreen');
+      if (img) {
+        img.src = `/screen.bmp?t=${Date.now()}`;
+      }
+    }
+    setInterval(refreshScreenshot, 5000);
 
     // Load persisted track first so path is visible before live data
     await loadPersistedTrack();

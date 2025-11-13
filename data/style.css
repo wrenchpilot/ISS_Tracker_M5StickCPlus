@@ -46,3 +46,164 @@ body { background:#f8f9fa }
 
 /* Make navbar brand not wrap weirdly on tiny screens */
 .navbar .navbar-brand { white-space: nowrap; }
+
+/* ISS Tracker Map Styles */
+#map {
+  height: 500px;
+  border-radius: .5rem;
+  border: 1px solid #ccc;
+  position: relative;
+}
+
+.leaflet-control-attribution {
+  display: none;
+}
+
+.stat th {
+  width: 42%;
+}
+
+.legend-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.legend-horizontal > div {
+  white-space: nowrap;
+}
+
+.map-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  padding: 4px;
+  display: flex;
+  gap: 2px;
+}
+
+.map-controls button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: white;
+  cursor: pointer;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.map-controls button:hover {
+  background: #f4f4f4;
+}
+
+.legend-control {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+}
+
+.legend-toggle {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.legend-toggle:hover {
+  background: #f4f4f4;
+}
+
+.legend-panel {
+  display: none;
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  padding: 10px;
+  min-width: 200px;
+  font-size: 0.875rem;
+}
+
+.legend-panel.show {
+  display: block;
+}
+
+.legend-panel > div {
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+.legend-panel > div:last-child {
+  margin-bottom: 0;
+}
+
+/* Map container wrapper */
+.map-wrapper {
+  position: relative;
+}
+
+/* Legend item indicators */
+.legend-indicator-line {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  margin-right: 6px;
+}
+
+.legend-indicator-line.track {
+  background: #ff7f00;
+}
+
+.legend-indicator-line.prediction {
+  background: #0d6efd;
+  border-bottom: 3px dotted #0d6efd;
+}
+
+.legend-indicator-circle {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.legend-indicator-circle.sun {
+  background: #ffd400;
+}
+
+.legend-indicator-circle.home {
+  background: #198754;
+}
+
+.legend-indicator-circle.iss {
+  background: #dc3545;
+}
+
+/* Device screenshot display */
+.device-screen {
+  max-width: 100%;
+  height: auto;
+  image-rendering: crisp-edges;
+}

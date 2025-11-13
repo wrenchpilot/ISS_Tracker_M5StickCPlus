@@ -14,22 +14,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
 
-  <link rel="stylesheet" href="/styles.css">
-  <style>
-    #map {
-      height: 612px;
-      border-radius: .5rem;
-      border: 1px solid #ccc;
-    }
-
-    .leaflet-control-attribution {
-      display: none
-    }
-
-    .stat th {
-      width: 42%;
-    }
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
@@ -48,11 +33,38 @@
   <div class="container">
     <div class="row g-3">
       <div class="col-lg-8">
-        <div id="map"></div>
-        <div class="mt-2 d-flex gap-2">
-          <button id="centerHome" class="btn btn-secondary btn-sm">Center Home</button>
-          <button id="centerIss" class="btn btn-danger btn-sm">Center ISS</button>
-          <button id="fitAll" class="btn btn-outline-primary btn-sm">Fit All</button>
+        <div class="map-wrapper">
+          <div id="map"></div>
+          <div class="map-controls">
+            <button id="centerHome" title="Center Home">🏠</button>
+            <button id="centerIss" title="Center ISS">🛰️</button>
+            <button id="fitAll" title="Fit All">🗺️</button>
+          </div>
+          <div class="legend-control">
+            <button class="legend-toggle" id="legendToggle" title="Legend">ℹ️</button>
+            <div class="legend-panel" id="legendPanel">
+              <div>
+                <span class="legend-indicator-line track"></span>
+                Past track
+              </div>
+              <div>
+                <span class="legend-indicator-line prediction"></span>
+                1-hour prediction
+              </div>
+              <div>
+                <span class="legend-indicator-circle sun"></span>
+                Sun location
+              </div>
+              <div>
+                <span class="legend-indicator-circle home"></span>
+                Home (drag to move)
+              </div>
+              <div>
+                <span class="legend-indicator-circle iss"></span>
+                ISS location
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="col-lg-4">
@@ -65,31 +77,10 @@
           </div>
         </div>
         <div class="card shadow-sm">
-          <div class="card-header bg-dark text-white">Legend</div>
-          <div class="card-body small">
-            <div class="mb-1">
-              <span style="display:inline-block;width:14px;height:3px;background:#ff7f00;margin-right:6px;"></span>
-              Past track (persisted)
-            </div>
-            <div class="mb-1">
-              <span
-                style="display:inline-block;width:14px;height:3px;background:#0d6efd;border-bottom:3px dotted #0d6efd;margin-right:6px;"></span>
-              1-hour prediction
-            </div>
-            <div class="mb-1">
-              <span
-                style="display:inline-block;width:12px;height:12px;background:#ffd400;border-radius:50%;margin-right:6px;"></span>
-              Sun location
-            </div>
-            <div class="mb-0">
-              <span
-                style="display:inline-block;width:12px;height:12px;background:#198754;border-radius:50%;margin-right:6px;"></span>
-              Home (drag to move)
-            </div>
-            <div class="mb-0">
-              <span
-                style="display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:50%;margin-right:6px;"></span>
-              ISS location
+          <div class="card-header bg-success text-white">Device Display</div>
+          <div class="card-body text-center p-2">
+            <img id="deviceScreen" src="/screen.bmp" alt="Device display" class="img-fluid device-screen">
+            <div class="small text-muted mt-2">Auto-updates every 5 seconds</div>
           </div>
         </div>
       </div>
