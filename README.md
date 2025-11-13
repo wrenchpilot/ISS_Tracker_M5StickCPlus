@@ -214,6 +214,56 @@ curl -X POST http://iss.local/loc \
   -d '{"lat": 40.7128, "lon": -74.0060, "token": "your-token"}'
 ```
 
+### Apple Shortcuts Integration
+
+You can create an iOS/macOS Shortcut to automatically update your device's home location based on your current GPS coordinates.
+
+**To create the Shortcut:**
+
+1. Open the **Shortcuts** app on your iPhone or Mac
+2. Tap **+** to create a new shortcut
+3. Add these actions in order:
+
+   **Action 1: Get Current Location**
+   - Search for "Get Current Location"
+   - Add this action
+
+   **Action 2: Get Details of Location**
+   - Search for "Get Details of Locations"
+   - Set "Get **Latitude** from Current Location"
+   - Add a second "Get Details of Locations" action
+   - Set "Get **Longitude** from Current Location"
+
+   **Action 3: Text (Build JSON)**
+   - Add a "Text" action
+   - Enter the following (replace `YOUR_TOKEN` if you set one in `user_settings.h`):
+     ```json
+     {"lat": LATITUDE, "lon": LONGITUDE, "token": "YOUR_TOKEN"}
+     ```
+   - Tap on `LATITUDE` and replace it with the magic variable from "Latitude"
+   - Tap on `LONGITUDE` and replace it with the magic variable from "Longitude"
+
+   **Action 4: Get Contents of URL**
+   - Search for "Get Contents of URL"
+   - Set URL to: `http://iss.local/loc` (or use your device's IP address)
+   - Set Method to: **POST**
+   - Under "Headers", add:
+     - Key: `Content-Type`
+     - Value: `application/json`
+   - Set Request Body to: **Text** (select the Text output from previous action)
+
+4. Name your shortcut: "Update ISS Tracker Location"
+5. Tap **Done**
+
+**To use the Shortcut:**
+- Run it manually from the Shortcuts app
+- Add to your Home Screen for quick access
+- Add to the Widgets screen
+- Use Siri: "Hey Siri, Update ISS Tracker Location"
+- Automate it (iOS): Create an automation that runs when you arrive/leave a location
+
+**Note**: If using `LOC_TOKEN`, make sure it matches the token set in `user_settings.h`. If `LOC_TOKEN` is empty (default), you can omit the `"token"` field entirely or set it to an empty string.
+
 ## Customization
 
 - **Home Location**: Edit `HOME_LAT` and `HOME_LON` in `user_settings.h`, or drag the green marker in the web UI
