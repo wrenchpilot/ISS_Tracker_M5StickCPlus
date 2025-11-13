@@ -99,4 +99,3 @@ Note: Exact AP SSID, default passwords, and IP addresses depend on the sketch. I
 ## Development notes
 
 - The `data/` folder is intended for LittleFS/SPIFFS. Do NOT include `data/` in standard firmware uploads — use the filesystem upload tool.
-- Keep `user_settings.h` out of public repositories if it contains secrets (Wi‑Fi credentials or API keys). Consider adding it to `.gitignore`.
