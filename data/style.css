@@ -233,3 +233,41 @@ body { background:#f8f9fa }
   height: auto;
   image-rendering: crisp-edges;
 }
+
+/* Enhanced Navbar Styles */
+.navbar.navbar-enhanced {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  padding: 0.75rem 0;
+}
+
+.navbar-enhanced .navbar-brand {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navbar-enhanced .navbar-brand .brand-icon {
+  font-size: 1.75rem;
+  filter: drop-shadow(0 2px 4px rgba(255,255,255,0.3));
+}
+
+.navbar-enhanced .nav-link {
+  font-weight: 500;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.navbar-enhanced .nav-link:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-1px);
+}
+
+.navbar-enhanced .nav-link.active {
+  background: rgba(255,255,255,0.15);
+  font-weight: 600;
+}
