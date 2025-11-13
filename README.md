@@ -59,16 +59,16 @@ _WiFi Setup Mode_
 ## Requirements
 
 - macOS, Windows, or Linux development machine
-- Arduino IDE 2.x or Arduino CLI with ESP32 board support
-- M5StickC Plus (ESP32-PICO-D4) device
+- [Arduino IDE 2.x](https://www.arduino.cc/en/software) or Arduino CLI with ESP32 board support
+- [M5StickC Plus](https://shop.m5stack.com/products/m5stickc-plus-esp32-pico-mini-iot-development-kit) (ESP32-PICO-D4) device
 - USB-C cable for programming
 - **Optional:** External speaker connected to GPIO 26 (G26) and GND for audio alerts
 - **For LittleFS uploads (command-line method):**
   - `mklittlefs` — Install via Homebrew: `brew install mklittlefs`
   - `esptool` — Install via Homebrew: `brew install esptool`
 - **Libraries** (install via Arduino Library Manager):
-  - M5StickCPlus (v2.x)
-  - ArduinoJson (v6.x)
+  - [M5StickCPlus](https://github.com/m5stack/M5StickC-Plus) (v2.x)
+  - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) (v6.x)
   - WiFi, WiFiClientSecure, HTTPClient (included with ESP32 core)
 
 If the compiler reports missing libraries, install them through Arduino IDE > Tools > Manage Libraries...
