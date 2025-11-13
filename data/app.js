@@ -265,7 +265,7 @@
       `<tr><th>Solar Lat</th><td>${Number.isFinite(sLat) ? sLat.toFixed(2) : '—'}</td></tr>`,
       `<tr><th>Solar Lon</th><td>${Number.isFinite(sLon) ? sLon.toFixed(2) : '—'}</td></tr>`,
       homeMarker
-        ? `<tr><th>Home</th><td>${homeMarker.getLatLng().lat.toFixed(4)}, ${homeMarker.getLatLng().lng.toFixed(4)}</td></tr>`
+        ? `<tr><th>Home</th><td class="sensitive-info">${homeMarker.getLatLng().lat.toFixed(4)}, ${homeMarker.getLatLng().lng.toFixed(4)}</td></tr>`
         : '',
       '</table>'
     ].join('');
@@ -440,6 +440,15 @@
     on($('legendToggle'), 'click', () => {
       const panel = $('legendPanel');
       if (panel) panel.classList.toggle('show');
+    });
+
+    // Privacy toggle
+    let privacyVisible = false;
+    on($('privacyToggle'), 'click', () => {
+      privacyVisible = !privacyVisible;
+      document.body.classList.toggle('privacy-visible', privacyVisible);
+      const icon = $('privacyToggle')?.querySelector('.privacy-icon');
+      if (icon) icon.textContent = privacyVisible ? '👁️' : '👁️‍🗨️';
     });
 
     // Day/Night overlay (plugin URL is included in index.html)

@@ -78,6 +78,18 @@
     if (forgetBtn && forgetForm){
       forgetBtn.onclick = () => { forgetForm.submit(); };
     }
+
+    // Privacy toggle for setup page
+    const privacyToggle = document.getElementById('privacyToggleSetup');
+    let privacyVisible = false;
+    if (privacyToggle) {
+      privacyToggle.onclick = () => {
+        privacyVisible = !privacyVisible;
+        document.body.classList.toggle('privacy-visible', privacyVisible);
+        const icon = privacyToggle.querySelector('.privacy-icon');
+        if (icon) icon.textContent = privacyVisible ? '👁️' : '👁️‍🗨️';
+      };
+    }
   }
 
   if (document.readyState === 'loading') {

@@ -69,11 +69,16 @@
 
       <div class="col-lg-5">
         <div class="card shadow-sm">
-          <div class="card-header">Device</div>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Device</span>
+            <button id="privacyToggleSetup" class="btn btn-sm btn-outline-secondary privacy-toggle" title="Toggle sensitive info">
+              <span class="privacy-icon">👁️‍🗨️</span>
+            </button>
+          </div>
           <div class="card-body small" id="devBox">
-            <div><b>Wi-Fi:</b> <span id="devSsid">—</span></div>
-            <div><b>IP:</b> <span id="devIp">—</span></div>
-            <div><b>Home:</b> <span id="devHome">—</span></div>
+            <div><b>Wi-Fi:</b> <span id="devSsid" class="sensitive-info">—</span></div>
+            <div><b>IP:</b> <span id="devIp" class="sensitive-info">—</span></div>
+            <div><b>Home:</b> <span id="devHome" class="sensitive-info">—</span></div>
           </div>
         </div>
       </div>

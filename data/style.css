@@ -242,6 +242,34 @@ body { background:#f8f9fa }
   box-shadow: none !important;
 }
 
+/* Privacy toggle for sensitive information */
+.sensitive-info {
+  filter: blur(5px);
+  transition: filter 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+body.privacy-visible .sensitive-info {
+  filter: blur(0);
+}
+
+.privacy-toggle {
+  border: none !important;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.privacy-toggle:hover {
+  background: rgba(255,255,255,0.2) !important;
+}
+
+.privacy-icon {
+  display: inline-block;
+  font-size: 1.1rem;
+}
+
 .iss-marker-icon div,
 .sun-marker-icon div {
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
