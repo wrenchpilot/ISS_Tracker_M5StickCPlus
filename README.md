@@ -212,7 +212,17 @@ curl -X POST http://iss.local/loc \
 
 You can create an iOS/macOS Shortcut to automatically update your device's home location based on your current GPS coordinates.
 
-**To create the Shortcut:**
+**Quick Install:**
+
+Download the pre-made shortcut here: [**Update ISS Tracker Location**](https://www.icloud.com/shortcuts/581da30f8f9b4960bc2323781c48cd74)
+
+After installing, edit the shortcut to:
+- Update the device URL (replace `iss.local` with your device's IP if needed)
+- Set your auth token if you configured one in `user_settings.h`
+
+**Manual Setup (Optional):**
+
+To create the Shortcut manually:
 
 1. Open the **Shortcuts** app on your iPhone or Mac
 2. Tap **+** to create a new shortcut
