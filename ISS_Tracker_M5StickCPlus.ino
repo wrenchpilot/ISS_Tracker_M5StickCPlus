@@ -643,7 +643,7 @@ bool serveStaticFile(String path)
     if (!f)
       return false;
     server.sendHeader("Content-Encoding", "gzip");
-    server.sendHeader("Cache-Control", "public, max-age=604800, immutable");
+    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     server.streamFile(f, contentTypeFor(path));
     f.close();
     return true;
@@ -653,7 +653,7 @@ bool serveStaticFile(String path)
   File f = LittleFS.open(path, "r");
   if (!f)
     return false;
-  server.sendHeader("Cache-Control", "public, max-age=604800, immutable");
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   server.streamFile(f, contentTypeFor(path));
   f.close();
   return true;
