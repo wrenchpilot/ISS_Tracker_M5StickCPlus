@@ -443,6 +443,23 @@
     }
     setInterval(refreshScreenshot, 5000);
 
+    // Handle map resize and invalidate size when window resizes
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (map) {
+          map.invalidateSize();
+          // Recenter on ISS if available, otherwise fit all
+          if (issIcon && issIcon.getLatLng && issIcon.getLatLng().lat !== 0) {
+            map.setView(issIcon.getLatLng(), map.getZoom());
+          } else {
+            fitAll();
+          }
+        }
+      }, 250);
+    });
+
     // Load persisted track first so path is visible before live data
     await loadPersistedTrack();
 
@@ -455,6 +472,19 @@
 
     // First live sample + periodic polling
     await poll();
+    
+    // After first data load, invalidate map size to handle flexbox layout
+    // and refit bounds to ensure proper centering
+    setTimeout(() => {
+      if (map) {
+        map.invalidateSize();
+        if (!didInitialFit) {
+          fitAll();
+          didInitialFit = true;
+        }
+      }
+    }, 100);
+    
     setInterval(poll, 5000);
   }
 

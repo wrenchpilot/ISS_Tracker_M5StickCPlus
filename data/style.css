@@ -49,10 +49,36 @@ body { background:#f8f9fa }
 
 /* ISS Tracker Map Styles */
 #map {
-  height: 500px;
+  height: 100%;
   border-radius: .5rem;
   border: 1px solid #ccc;
   position: relative;
+}
+
+/* Map wrapper container to match sidebar height */
+.map-wrapper {
+  position: relative;
+  height: 100%;
+}
+
+/* Match heights between columns */
+.row.match-height {
+  display: flex;
+}
+
+.row.match-height > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}
+
+.col-lg-8 .map-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.col-lg-4 {
+  display: flex;
+  flex-direction: column;
 }
 
 .leaflet-control-attribution {
