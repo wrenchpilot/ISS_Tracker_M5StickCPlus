@@ -338,10 +338,40 @@
         }
 
         lastIss = data;
-        fitAllOnce(); // ensure default “Fit All” once we have content
+        fitAllOnce(); // ensure default "Fit All" once we have content
       }
     } catch (e) {
       console.warn('Live fetch error:', e.message || e);
+    }
+
+    // Check for home location updates (e.g., from external /loc API calls)
+    try {
+      const r = await fetch('/config.json', { cache: 'no-store' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j && j.home) {
+          const newLat = Number(j.home.lat);
+          const newLon = Number(j.home.lon);
+          if (Number.isFinite(newLat) && Number.isFinite(newLon)) {
+            // Check if home location changed
+            const currentHome = homeMarker ? homeMarker.getLatLng() : null;
+            if (!currentHome || Math.abs(currentHome.lat - newLat) > 0.0001 || Math.abs(currentHome.lng - newLon) > 0.0001) {
+              homeLat = newLat;
+              homeLon = newLon;
+              if (homeMarker) {
+                homeMarker.setLatLng([newLat, newLon]);
+                // Redraw lines and telemetry with new home position
+                if (lastIss && Number.isFinite(lastIss.latitude) && Number.isFinite(lastIss.longitude)) {
+                  updateLines(Number(lastIss.latitude), Number(lastIss.longitude));
+                  updateTelemetry(lastIss);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Config check error:', e.message || e);
     }
   }
 
