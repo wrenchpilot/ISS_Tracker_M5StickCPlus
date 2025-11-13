@@ -58,6 +58,10 @@ _On-device display and basic status screen._
 
 _Web UI map / pass prediction view._
 
+![WiFi Setup](screenshots/wifi.png)
+
+_WiFi Setup Mode_
+
 ## Requirements
 
 - macOS, Windows, or Linux development machine
