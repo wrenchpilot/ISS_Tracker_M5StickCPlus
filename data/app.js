@@ -11,8 +11,14 @@
   let map, base, terminator;
   let didInitialFit = false; // run “Fit All” once when content exists
 
-  // Live ISS marker (circle)
-  const issIcon = L.circleMarker([0, 0], { radius: 6, color: '#c00', fillColor: '#f33', fillOpacity: 0.9 });
+  // Live ISS marker (satellite icon)
+  const issMarkerDiv = L.divIcon({
+    html: '<div style="font-size: 24px; text-align: center; line-height: 1;">🛰️</div>',
+    className: 'iss-marker-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+  let issMarker = L.marker([0, 0], { icon: issMarkerDiv });
 
   // Past track (persisted + live extension)
   const track = L.polyline([], { color: 'orange', weight: 2 });
@@ -29,8 +35,14 @@
     iconAnchor: [12, 41]
   });
 
-  // Sun marker (from solar_lat / solar_lon)
-  const sunIcon = L.circleMarker([0, 0], { radius: 6, color: '#ffd400', fillColor: '#ffd400', fillOpacity: 1.0 });
+  // Sun marker (sun emoji icon)
+  const sunMarkerDiv = L.divIcon({
+    html: '<div style="font-size: 24px; text-align: center; line-height: 1;">☀️</div>',
+    className: 'sun-marker-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+  let sunMarker = L.marker([0, 0], { icon: sunMarkerDiv });
 
   // Link line Home ↔ ISS
   let linkLine = null;
@@ -126,7 +138,7 @@
   function layerBounds() {
     const layers = [];
     if (homeMarker) layers.push(homeMarker.getLatLng());
-    if (issIcon && issIcon.getLatLng) layers.push(issIcon.getLatLng());
+    if (issMarker && issMarker.getLatLng) layers.push(issMarker.getLatLng());
     const t = track.getLatLngs();
     if (t && (Array.isArray(t[0]) ? t.flat().length : t.length)) {
       (Array.isArray(t[0]) ? t.flat() : t).forEach(p => layers.push(p));
@@ -135,7 +147,7 @@
     if (p && (Array.isArray(p[0]) ? p.flat().length : p.length)) {
       (Array.isArray(p[0]) ? p.flat() : p).forEach(p2 => layers.push(p2));
     }
-    if (sunIcon && sunIcon.getLatLng) layers.push(sunIcon.getLatLng());
+    if (sunMarker && sunMarker.getLatLng) layers.push(sunMarker.getLatLng());
     if (!layers.length) return null;
     return L.latLngBounds(layers);
   }
@@ -277,8 +289,8 @@
     let nl = lon;
     while (nl > 180) nl -= 360;
     while (nl < -180) nl += 360;
-    sunIcon.setLatLng([lat, nl]);
-    if (!sunIcon._map) sunIcon.addTo(map);
+    sunMarker.setLatLng([lat, nl]);
+    if (!sunMarker._map) sunMarker.addTo(map);
   }
 
   async function refreshPrediction(tsBase) {
@@ -315,8 +327,8 @@
         }
 
         // Live marker
-        issIcon.setLatLng([lat, lon]);
-        if (!issIcon._map) issIcon.addTo(map);
+        issMarker.setLatLng([lat, lon]);
+        if (!issMarker._map) issMarker.addTo(map);
 
         // Extend live track; keep a sane cap
         const next = flat.slice();
@@ -420,7 +432,7 @@
       if (homeMarker) map.setView(homeMarker.getLatLng(), 4);
     });
     on($('centerIss'), 'click', () => {
-      if (issIcon && issIcon.getLatLng) map.setView(issIcon.getLatLng(), 4);
+      if (issMarker && issMarker.getLatLng) map.setView(issMarker.getLatLng(), 4);
     });
     on($('fitAll'), 'click', () => fitAll());
 
@@ -451,8 +463,8 @@
         if (map) {
           map.invalidateSize();
           // Recenter on ISS if available, otherwise fit all
-          if (issIcon && issIcon.getLatLng && issIcon.getLatLng().lat !== 0) {
-            map.setView(issIcon.getLatLng(), map.getZoom());
+          if (issMarker && issMarker.getLatLng && issMarker.getLatLng().lat !== 0) {
+            map.setView(issMarker.getLatLng(), map.getZoom());
           } else {
             fitAll();
           }
