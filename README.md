@@ -62,6 +62,7 @@ _WiFi Setup Mode_
 - Arduino IDE 2.x or Arduino CLI with ESP32 board support
 - M5StickC Plus (ESP32-PICO-D4) device
 - USB-C cable for programming
+- **Optional:** External speaker connected to GPIO 26 (G26) and GND for audio alerts
 - **For LittleFS uploads (command-line method):**
   - `mklittlefs` — Install via Homebrew: `brew install mklittlefs`
   - `esptool` — Install via Homebrew: `brew install esptool`
