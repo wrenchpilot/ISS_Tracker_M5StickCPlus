@@ -32,7 +32,14 @@ A compact ISS tracker project for the M5StickC Plus (ESP32-based) with both on-d
 - Interactive Leaflet map with day/night terminator
 - Real-time ISS tracking with past track history
 - 1-hour orbital prediction (blue dotted line)
-- Draggable home location marker
+- Draggable home location marker (red pin 📍)
+- Sun position indicator (☀️)
+- Map controls:
+  - Center on home location (📍)
+  - Center on ISS (🛰️)
+  - Center on sun (☀️)
+  - Fit all markers (🗺️)
+  - Show/hide legend (ℹ️)
 - Detailed telemetry display
 - WiFi configuration and network scanning
 - Screenshot capture via `/screen.bmp`
