@@ -273,7 +273,11 @@
 
   function updateSun(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    sunIcon.setLatLng([lat, lon]);
+    // Normalize longitude to [-180, 180] so markers appear correctly on a no-wrap map
+    let nl = lon;
+    while (nl > 180) nl -= 360;
+    while (nl < -180) nl += 360;
+    sunIcon.setLatLng([lat, nl]);
     if (!sunIcon._map) sunIcon.addTo(map);
   }
 
