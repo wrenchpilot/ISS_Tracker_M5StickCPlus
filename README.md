@@ -1,19 +1,6 @@
-# ISS Tracker — M5StickC Plus
+# ISS Tracker for M5StickC Plus
 
 A compact ISS tracker project for the M5StickC Plus (ESP32-based) with both on-device display and web UI. The device shows real-time ISS position, distance, velocity, and a mini-map with 1-hour prediction path. A full-featured web interface provides interactive map tracking and configuration.
-
-## What this repository contains
-
-- `ISS_Tracker_M5StickCPlus.ino` — Main Arduino sketch for the M5StickC Plus.
-- `user_settings.h` — Project configuration: Wi‑Fi credentials, API keys and other user-editable settings.
-- `upload_littlefs.sh` — Bash script for uploading LittleFS filesystem (macOS/Linux).
-- `data/` — Static web files (served from LittleFS):
-  - `index.html` — Main web UI with interactive map.
-  - `setup.html` — Setup/configuration UI.
-  - `app.js`, `setup.js` — JavaScript for the web UI.
-  - `style.css` — Styling for the web pages.
-
-> Note: The web files in `data/` must be uploaded to the device filesystem (LittleFS) separately from the sketch.
 
 ## Features
 

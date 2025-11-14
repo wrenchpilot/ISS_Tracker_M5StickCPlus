@@ -1,22 +1,6 @@
 /*
-  ISS Tracker — M5StickC Plus (v2.0)
+  ISS Tracker for M5StickC Plus
   -----------------------------------
-  - Uses a single API:
-      https://api.wheretheiss.at/v1/satellites/25544?units=kilometers  (HTTPS)
-  - Serves a static UI from LittleFS:
-      /index.html (map/telemetry), /setup.html, /app.js, /setup.js, /style.css
-  - JSON endpoints:
-      /iss.json         -> live telemetry + derived values
-      /track.json?mins= -> persisted past path (reads track.ndjson)
-      /predict.json     -> 1-hour prediction based on recent motion
-      /scan.json        -> nearby Wi-Fi list
-      /config.json      -> device + home info
-      /loc (GET/POST)   -> set/persist new home
-  - Track persistence:
-      On every good ISS sample, append {"ts":<unix>,"lat":..,"lon":..}\n to /track.ndjson.
-      Reads the last N minutes on demand; no RAM history required across reboots.
-  - Draggable home (handled by UI -> /loc)
-  - M5 on-device screen is still updated.
 */
 
 #include <M5StickCPlus.h>
