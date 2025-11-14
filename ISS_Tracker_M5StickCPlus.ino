@@ -1093,14 +1093,15 @@ void routesForPortal()
     }
     saveWifiCreds(ssid, pass);
     server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='3;url=/'/>Saved. Rebooting…");
+    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='5;url=http://iss.local'/>Saved. Rebooting…");
     delay(750);
     ESP.restart(); });
   server.on("/forget", HTTP_POST, []()
             {
     forgetWifiCreds();
+    String apIP = WiFi.softAPIP().toString();
     server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='3;url=/setup.html'/>Forgotten. Rebooting…");
+    server.send(200, "text/html; charset=utf-8", "<meta http-equiv='refresh' content='5;url=http://"+ apIP + "/setup.html'/>Forgotten. Rebooting…");
     delay(750);
     ESP.restart(); });
 

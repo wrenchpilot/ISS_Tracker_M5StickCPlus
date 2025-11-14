@@ -47,6 +47,32 @@ body { background:#f8f9fa }
 /* Make navbar brand not wrap weirdly on tiny screens */
 .navbar .navbar-brand { white-space: nowrap; }
 
+
+/* Make the footer sit flush to the bottom of the viewport with no extra whitespace
+   when page content is shorter than the viewport (sticky-footer pattern). */
+html, body {
+  height: 100%;
+  margin: 0; /* reset any default body margin that can create white space */
+}
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* The main page content container should grow to fill available space so the
+   footer is pushed to the bottom when content is tall, or sits at the bottom
+   of the viewport when content is short. This targets the top-level
+   container used on index/setup pages (container-fluid px-4 py-3). */
+body > .container-fluid.px-4.py-3 {
+  flex: 1 0 auto;
+}
+
+/* Ensure footer has no bottom margin/padding that can create extra whitespace */
+.site-footer {
+  margin-bottom: 0;
+  padding-bottom: 0.6rem;
+}
 /* ISS Tracker Map Styles */
 #map {
   height: 100%;
@@ -847,4 +873,44 @@ body:not(.bootstrap-loaded) .small {
     padding: 0.75rem;
     font-size: 0.8rem;
   }
+}
+
+/* Footer styles */
+.site-footer {
+  width: 100%;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #fff;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.18);
+  margin-top: 1.25rem;
+}
+
+.site-footer .container-fluid {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.site-footer .footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255,255,255,0.95);
+}
+
+.site-footer .footer-link svg {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  fill: currentColor;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
+  color: #fff;
+}
+
+@media (prefers-color-scheme: light) {
+  .site-footer { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #212529; }
+  .site-footer .footer-link { color: #0d6efd; }
 }

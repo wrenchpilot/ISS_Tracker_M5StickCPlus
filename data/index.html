@@ -7,14 +7,14 @@
   <title>ISS Tracker</title>
 
   <!-- Bootstrap & Leaflet -->
-  <link href="/assets/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/leaflet.css">
+  <link href="assets/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="assets/leaflet.css">
 
   <!-- Leaflet + day/night terminator plugin -->
-  <script src="/assets/leaflet.js"></script>
-<script src="/assets/leaflet.terminator"></script>
+  <script src="assets/leaflet.js"></script>
+  <script src="assets/leaflet.terminator"></script>
 
-  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 
 <body>
@@ -24,7 +24,8 @@
         <span class="brand-icon">🛰️</span>
         <span>ISS Tracker</span>
       </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
@@ -78,7 +79,8 @@
         <div class="card shadow-sm mb-3">
           <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <span>Live Telemetry</span>
-            <button id="privacyToggle" class="btn btn-sm btn-outline-light privacy-toggle" title="Toggle sensitive info">
+            <button id="privacyToggle" class="btn btn-sm btn-outline-light privacy-toggle"
+              title="Toggle sensitive info">
               <span class="privacy-icon">👁️‍🗨️</span>
             </button>
           </div>
@@ -111,20 +113,26 @@
         <div class="accordion" id="readmeAccordion">
           <div class="accordion-item">
             <h2 class="accordion-header" id="headingReadme">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseReadme" aria-expanded="false" aria-controls="collapseReadme">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                data-bs-target="#collapseReadme" aria-expanded="false" aria-controls="collapseReadme">
                 📖 Project Documentation
               </button>
             </h2>
-            <div id="collapseReadme" class="accordion-collapse collapse" aria-labelledby="headingReadme" data-bs-parent="#readmeAccordion">
+            <div id="collapseReadme" class="accordion-collapse collapse" aria-labelledby="headingReadme"
+              data-bs-parent="#readmeAccordion">
               <div class="accordion-body readme-content">
                 <h1>ISS Tracker — M5StickC Plus</h1>
-                <p>A compact ISS tracker project for the M5StickC Plus (ESP32-based) with both on-device display and web UI. The device shows real-time ISS position, distance, velocity, and a mini-map with 1-hour prediction path. A full-featured web interface provides interactive map tracking and configuration.</p>
+                <p>A compact ISS tracker project for the M5StickC Plus (ESP32-based) with both on-device display and web
+                  UI. The device shows real-time ISS position, distance, velocity, and a mini-map with 1-hour prediction
+                  path. A full-featured web interface provides interactive map tracking and configuration.</p>
 
                 <h2>What this repository contains</h2>
                 <ul>
                   <li><code>ISS_Tracker_M5StickCPlus.ino</code> — Main Arduino sketch for the M5StickC Plus.</li>
-                  <li><code>user_settings.h</code> — Project configuration: Wi‑Fi credentials, API keys and other user-editable settings.</li>
-                  <li><code>upload_littlefs.sh</code> — Bash script for uploading LittleFS filesystem (macOS/Linux).</li>
+                  <li><code>user_settings.h</code> — Project configuration: Wi‑Fi credentials, API keys and other
+                    user-editable settings.</li>
+                  <li><code>upload_littlefs.sh</code> — Bash script for uploading LittleFS filesystem (macOS/Linux).
+                  </li>
                   <li><code>data/</code> — Static web files (served from LittleFS):
                     <ul>
                       <li><code>index.html</code> — Main web UI with interactive map.</li>
@@ -135,7 +143,8 @@
                   </li>
                 </ul>
                 <blockquote>
-                  <p><strong>Note:</strong> The web files in <code>data/</code> must be uploaded to the device filesystem (LittleFS) separately from the sketch.</p>
+                  <p><strong>Note:</strong> The web files in <code>data/</code> must be uploaded to the device
+                    filesystem (LittleFS) separately from the sketch.</p>
                 </blockquote>
 
                 <h2>Features</h2>
@@ -191,10 +200,13 @@
                 <h2>Requirements</h2>
                 <ul>
                   <li>macOS, Windows, or Linux development machine</li>
-                  <li><a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener noreferrer">Arduino IDE 2.x</a> or Arduino CLI with ESP32 board support</li>
-                  <li><a href="https://shop.m5stack.com/products/m5stickc-plus-esp32-pico-mini-iot-development-kit" target="_blank" rel="noopener noreferrer">M5StickC Plus</a> (ESP32-PICO-D4) device</li>
+                  <li><a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener noreferrer">Arduino IDE
+                      2.x</a> or Arduino CLI with ESP32 board support</li>
+                  <li><a href="https://shop.m5stack.com/products/m5stickc-plus-esp32-pico-mini-iot-development-kit"
+                      target="_blank" rel="noopener noreferrer">M5StickC Plus</a> (ESP32-PICO-D4) device</li>
                   <li>USB-C cable for programming</li>
-                  <li><strong>Optional:</strong> External speaker connected to GPIO 26 (G26) and GND for audio alerts</li>
+                  <li><strong>Optional:</strong> External speaker connected to GPIO 26 (G26) and GND for audio alerts
+                  </li>
                   <li><strong>For LittleFS uploads (command-line method):</strong>
                     <ul>
                       <li><code>mklittlefs</code> — Install via Homebrew: <code>brew install mklittlefs</code></li>
@@ -203,13 +215,16 @@
                   </li>
                   <li><strong>Libraries</strong> (install via Arduino Library Manager):
                     <ul>
-                      <li><a href="https://github.com/m5stack/M5StickC-Plus" target="_blank" rel="noopener noreferrer">M5StickCPlus</a> (v2.x)</li>
-                      <li><a href="https://github.com/bblanchon/ArduinoJson" target="_blank" rel="noopener noreferrer">ArduinoJson</a> (v6.x)</li>
+                      <li><a href="https://github.com/m5stack/M5StickC-Plus" target="_blank"
+                          rel="noopener noreferrer">M5StickCPlus</a> (v2.x)</li>
+                      <li><a href="https://github.com/bblanchon/ArduinoJson" target="_blank"
+                          rel="noopener noreferrer">ArduinoJson</a> (v6.x)</li>
                       <li>WiFi, WiFiClientSecure, HTTPClient (included with ESP32 core)</li>
                     </ul>
                   </li>
                 </ul>
-                <p>If the compiler reports missing libraries, install them through Arduino IDE &gt; Tools &gt; Manage Libraries...</p>
+                <p>If the compiler reports missing libraries, install them through Arduino IDE &gt; Tools &gt; Manage
+                  Libraries...</p>
 
                 <h2>Setup</h2>
 
@@ -243,7 +258,8 @@
 
 // API token (optional - for /loc endpoint security)
 #define LOC_TOKEN ""        // Leave empty for no authentication</code></pre>
-                <p><strong>Note:</strong> It's recommended to configure WiFi via the captive portal on first boot rather than hardcoding credentials.</p>
+                <p><strong>Note:</strong> It's recommended to configure WiFi via the captive portal on first boot rather
+                  than hardcoding credentials.</p>
 
                 <h3>4. Upload LittleFS Filesystem</h3>
                 <p>The web UI files must be uploaded to the device filesystem separately.</p>
@@ -271,7 +287,8 @@
                   <li><strong>Install the plugin</strong>:
                     <ul>
                       <li>Download from: https://github.com/lorol/arduino-esp32littlefs-plugin/releases</li>
-                      <li>Extract to <code>~/Documents/Arduino/tools/</code> (create <code>tools</code> folder if needed)</li>
+                      <li>Extract to <code>~/Documents/Arduino/tools/</code> (create <code>tools</code> folder if
+                        needed)</li>
                       <li>Restart Arduino IDE</li>
                     </ul>
                   </li>
@@ -307,7 +324,8 @@
                 <p><strong>After WiFi is configured:</strong></p>
                 <ul>
                   <li>Device shows "Wi-Fi ok" with IP address on screen</li>
-                  <li>Access web UI at <code>http://iss.local/</code> (or use device's IP address if mDNS doesn't work)</li>
+                  <li>Access web UI at <code>http://iss.local/</code> (or use device's IP address if mDNS doesn't work)
+                  </li>
                   <li>Main UI: <code>http://iss.local/</code> or <code>http://iss.local/index.html</code></li>
                   <li>Setup page: <code>http://iss.local/setup.html</code></li>
                 </ul>
@@ -348,9 +366,12 @@
   -d '{"lat": 40.7128, "lon": -74.0060, "token": "your-token"}'</code></pre>
 
                 <h3>Apple Shortcuts Integration</h3>
-                <p>You can create an iOS/macOS Shortcut to automatically update your device's home location based on your current GPS coordinates.</p>
+                <p>You can create an iOS/macOS Shortcut to automatically update your device's home location based on
+                  your current GPS coordinates.</p>
                 <p><strong>Quick Install:</strong></p>
-                <p>Download the pre-made shortcut here: <a href="https://www.icloud.com/shortcuts/581da30f8f9b4960bc2323781c48cd74" target="_blank"><strong>Update ISS Tracker Location</strong></a></p>
+                <p>Download the pre-made shortcut here: <a
+                    href="https://www.icloud.com/shortcuts/581da30f8f9b4960bc2323781c48cd74"
+                    target="_blank"><strong>Update ISS Tracker Location</strong></a></p>
                 <p>After installing, edit the shortcut to:</p>
                 <ul>
                   <li>Update the device URL (replace <code>iss.local</code> with your device's IP if needed)</li>
@@ -377,7 +398,8 @@
                     <p><strong>Action 3: Text (Build JSON)</strong></p>
                     <ul>
                       <li>Add a "Text" action</li>
-                      <li>Enter the following (replace <code>YOUR_TOKEN</code> if you set one in <code>user_settings.h</code>):
+                      <li>Enter the following (replace <code>YOUR_TOKEN</code> if you set one in
+                        <code>user_settings.h</code>):
                         <pre><code>{"lat": LATITUDE, "lon": LONGITUDE, "token": "YOUR_TOKEN"}</code></pre>
                       </li>
                       <li>Tap on <code>LATITUDE</code> and replace it with the magic variable from "Latitude"</li>
@@ -408,17 +430,24 @@
                   <li>Use Siri: "Hey Siri, Update ISS Tracker Location"</li>
                   <li>Automate it (iOS): Create an automation that runs when you arrive/leave a location</li>
                 </ul>
-                <p><strong>Note:</strong> If using <code>LOC_TOKEN</code>, make sure it matches the token set in <code>user_settings.h</code>. If <code>LOC_TOKEN</code> is empty (default), you can omit the <code>"token"</code> field entirely or set it to an empty string.</p>
+                <p><strong>Note:</strong> If using <code>LOC_TOKEN</code>, make sure it matches the token set in
+                  <code>user_settings.h</code>. If <code>LOC_TOKEN</code> is empty (default), you can omit the
+                  <code>"token"</code> field entirely or set it to an empty string.</p>
 
                 <h2>Customization</h2>
                 <ul>
-                  <li><strong>Home Location</strong>: Edit <code>HOME_LAT</code> and <code>HOME_LON</code> in <code>user_settings.h</code>, or drag the green marker in the web UI</li>
-                  <li><strong>WiFi Configuration</strong>: Use the captive portal (<code>http://192.168.4.1/setup.html</code>) or setup page when connected</li>
+                  <li><strong>Home Location</strong>: Edit <code>HOME_LAT</code> and <code>HOME_LON</code> in
+                    <code>user_settings.h</code>, or drag the green marker in the web UI</li>
+                  <li><strong>WiFi Configuration</strong>: Use the captive portal
+                    (<code>http://192.168.4.1/setup.html</code>) or setup page when connected</li>
                   <li><strong>Web UI</strong>: Modify files in <code>data/</code> folder, then re-upload filesystem</li>
-                  <li><strong>Alert Range</strong>: Change <code>RADIUS_KM</code> and <code>HYST_KM</code> constants in the <code>.ino</code> file</li>
+                  <li><strong>Alert Range</strong>: Change <code>RADIUS_KM</code> and <code>HYST_KM</code> constants in
+                    the <code>.ino</code> file</li>
                   <li><strong>Fetch Interval</strong>: Adjust <code>FETCH_INTERVAL_MS</code> (default: 5 seconds)</li>
-                  <li><strong>Mini-map</strong>: Toggle with <code>SHOW_MINIMAP</code> constant in <code>drawMiniMap()</code> function</li>
-                  <li><strong>API Security</strong>: Set <code>LOC_TOKEN</code> in <code>user_settings.h</code> to require authentication for location changes</li>
+                  <li><strong>Mini-map</strong>: Toggle with <code>SHOW_MINIMAP</code> constant in
+                    <code>drawMiniMap()</code> function</li>
+                  <li><strong>API Security</strong>: Set <code>LOC_TOKEN</code> in <code>user_settings.h</code> to
+                    require authentication for location changes</li>
                 </ul>
 
                 <h2>Troubleshooting</h2>
@@ -434,7 +463,8 @@
 
                 <h3>Web UI shows "index.html not found"</h3>
                 <ul>
-                  <li><strong>Filesystem not uploaded correctly</strong>. The LittleFS upload is separate from sketch upload.</li>
+                  <li><strong>Filesystem not uploaded correctly</strong>. The LittleFS upload is separate from sketch
+                    upload.</li>
                   <li>Verify partition scheme is "Huge APP" in Arduino IDE</li>
                   <li>Use <code>upload_littlefs.sh</code> script with correct parameters:
                     <ul>
@@ -486,12 +516,17 @@
                 <h2>Development Notes</h2>
                 <ul>
                   <li><strong>Partition scheme</strong>: Uses <code>huge_app</code> (3MB app / 1MB filesystem)</li>
-                  <li><strong>LittleFS location</strong>: Starts at <code>0x310000</code>, size <code>917504</code> bytes (896KB)</li>
+                  <li><strong>LittleFS location</strong>: Starts at <code>0x310000</code>, size <code>917504</code>
+                    bytes (896KB)</li>
                   <li><strong>Track persistence</strong>: Appends to <code>/track.ndjson</code> in NDJSON format</li>
-                  <li><strong>Sprite buffer</strong>: Uses TFT_eSprite (in-memory framebuffer) for screenshot capability</li>
-                  <li><strong>HTTPS</strong>: Uses <code>WiFiClientSecure</code> with <code>setInsecure()</code> for wheretheiss.at API</li>
-                  <li><strong>Memory</strong>: ~63KB used for sprite buffer, track data is file-based (no RAM history)</li>
-                  <li><strong>No Serial output</strong>: Device operates without Serial Monitor - all info displayed on screen/web UI</li>
+                  <li><strong>Sprite buffer</strong>: Uses TFT_eSprite (in-memory framebuffer) for screenshot capability
+                  </li>
+                  <li><strong>HTTPS</strong>: Uses <code>WiFiClientSecure</code> with <code>setInsecure()</code> for
+                    wheretheiss.at API</li>
+                  <li><strong>Memory</strong>: ~63KB used for sprite buffer, track data is file-based (no RAM history)
+                  </li>
+                  <li><strong>No Serial output</strong>: Device operates without Serial Monitor - all info displayed on
+                    screen/web UI</li>
                 </ul>
               </div>
             </div>
@@ -501,8 +536,29 @@
     </div>
   </div>
 
-    <script src="/assets/app.js"></script>
-  <script src="/assets/bootstrap.bundle.min.js"></script>
+  <!-- Site footer -->
+    <footer class="site-footer py-3 mt-3">
+      <div class="container-fluid px-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+          <div class="small mb-2 mb-md-0">© <span id="currentYear"></span> ISS Tracker — M5StickC Plus</div>
+          <div>
+            <a href="https://github.com/wrenchpilot/ISS_Tracker_M5StickCPlus" target="_blank" rel="noopener noreferrer"
+              class="text-white text-decoration-none footer-link">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-github"
+                viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path
+                  d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.66 7.66 0 0 1 2-.27c.68.003 1.36.092 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              <span class="ms-1">View on GitHub</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/app.js"></script>
+    <script src="assets/bootstrap.bundle.min.js"></script>
+    <script>document.getElementById('currentYear').textContent = new Date().getFullYear();</script>
 </body>
 
 </html>
