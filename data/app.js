@@ -396,7 +396,7 @@
       worldCopyJump: false,
       maxBounds: [[-85, -180], [85, 180]],
       maxBoundsViscosity: 1.0,
-      minZoom: 2
+      minZoom: 3
     });
     base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 12,
