@@ -1046,22 +1046,22 @@ void routesForPortal()
 
   server.on("/favicon.ico", HTTP_GET, []()
             { serveStaticFile("/favicon.ico"); });
-  server.on("/app.js", HTTP_GET, []()
-            { serveStaticFile("/app.js"); });
-  server.on("/setup.js", HTTP_GET, []()
-            { serveStaticFile("/setup.js"); });
-  server.on("/bootstrap.bundle.min.js", HTTP_GET, []()
-            { serveStaticFile("/bootstrap.bundle.min.js"); });
-  server.on("/leaflet.js", HTTP_GET, []()
-            { serveStaticFile("/leaflet.js"); });
-  server.on("/leaflet.terminator", HTTP_GET, []()
-            { serveStaticFile("/leaflet.terminator"); });
-  server.on("/style.css", HTTP_GET, []()
-            { serveStaticFile("/style.css"); });
-    server.on("/bootstrap.min.css", HTTP_GET, []()
-            { serveStaticFile("/bootstrap.min.css"); });
-    server.on("/leaflet.css", HTTP_GET, []()
-            { serveStaticFile("/leaflet.css"); });
+  server.on("/assets/app.js", HTTP_GET, []()
+            { serveStaticFile("/assets/app.js"); });
+  server.on("/assets/setup.js", HTTP_GET, []()
+            { serveStaticFile("/assets/setup.js"); });
+  server.on("/assets/bootstrap.bundle.min.js", HTTP_GET, []()
+            { serveStaticFile("/assets/bootstrap.bundle.min.js"); });
+  server.on("/assets/leaflet.js", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.js"); });
+  server.on("/assets/leaflet.terminator", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.terminator"); });
+  server.on("/assets/style.css", HTTP_GET, []()
+            { serveStaticFile("/assets/style.css"); });
+    server.on("/assets/bootstrap.min.css", HTTP_GET, []()
+            { serveStaticFile("/assets/bootstrap.min.css"); });
+    server.on("/assets/leaflet.css", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);
@@ -1120,22 +1120,22 @@ void routesForNormal()
 
   server.on("/favicon.ico", HTTP_GET, []()
             { serveStaticFile("/favicon.ico"); });
-  server.on("/app.js", HTTP_GET, []()
-            { serveStaticFile("/app.js"); });
-  server.on("/setup.js", HTTP_GET, []()
-            { serveStaticFile("/setup.js"); });
-  server.on("/bootstrap.bundle.min.js", HTTP_GET, []()
-            { serveStaticFile("/bootstrap.bundle.min.js"); });
-  server.on("/leaflet.js", HTTP_GET, []()
-            { serveStaticFile("/leaflet.js"); });
-  server.on("/leaflet.terminator", HTTP_GET, []()
-            { serveStaticFile("/leaflet.terminator"); });
-  server.on("/style.css", HTTP_GET, []()
-            { serveStaticFile("/style.css"); });
-    server.on("/bootstrap.min.css", HTTP_GET, []()
-            { serveStaticFile("/bootstrap.min.css"); });
-    server.on("/leaflet.css", HTTP_GET, []()
-            { serveStaticFile("/leaflet.css"); });
+  server.on("/assets/app.js", HTTP_GET, []()
+            { serveStaticFile("/assets/app.js"); });
+  server.on("/assets/setup.js", HTTP_GET, []()
+            { serveStaticFile("/assets/setup.js"); });
+  server.on("/assets/bootstrap.bundle.min.js", HTTP_GET, []()
+            { serveStaticFile("/assets/bootstrap.bundle.min.js"); });
+  server.on("/assets/leaflet.js", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.js"); });
+  server.on("/assets/leaflet.terminator", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.terminator"); });
+  server.on("/assets/style.css", HTTP_GET, []()
+            { serveStaticFile("/assets/style.css"); });
+    server.on("/assets/bootstrap.min.css", HTTP_GET, []()
+            { serveStaticFile("/assets/bootstrap.min.css"); });
+    server.on("/assets/leaflet.css", HTTP_GET, []()
+            { serveStaticFile("/assets/leaflet.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);

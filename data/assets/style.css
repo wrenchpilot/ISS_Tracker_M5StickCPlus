@@ -668,3 +668,183 @@ body:not(.bootstrap-loaded) .small {
   font-size: 1rem !important;
   border: 1px solid rgba(255,255,255,0.5) !important;
 }
+
+/* README Documentation Section Styles */
+.readme-content {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #2c3e50;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.readme-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid #0d6efd;
+}
+
+.readme-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #16213e;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.readme-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f3460;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.readme-content h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #495057;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.readme-content p {
+  margin-bottom: 1rem;
+}
+
+.readme-content ul,
+.readme-content ol {
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+}
+
+.readme-content li {
+  margin-bottom: 0.5rem;
+}
+
+.readme-content code {
+  background: #f8f9fa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #d63384;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  border: 1px solid #e9ecef;
+}
+
+.readme-content pre {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  border: 1px solid #444;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.readme-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border: none;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.readme-content blockquote {
+  background: #e7f3ff;
+  border-left: 4px solid #0d6efd;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.readme-content blockquote p {
+  margin-bottom: 0;
+}
+
+.readme-content a {
+  color: #0d6efd;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.readme-content a:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
+.readme-content strong {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.readme-content table {
+  width: 100%;
+  margin-bottom: 1rem;
+  border-collapse: collapse;
+}
+
+.readme-content table th,
+.readme-content table td {
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+}
+
+.readme-content table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+/* Accordion enhancements for README */
+#readmeAccordion .accordion-button {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  background: #f8f9fa;
+  padding: 1rem 1.25rem;
+}
+
+#readmeAccordion .accordion-button:not(.collapsed) {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: white;
+}
+
+#readmeAccordion .accordion-button:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#readmeAccordion .accordion-body {
+  padding: 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .readme-content {
+    font-size: 0.9rem;
+  }
+  
+  .readme-content h1 {
+    font-size: 1.75rem;
+  }
+  
+  .readme-content h2 {
+    font-size: 1.35rem;
+  }
+  
+  .readme-content h3 {
+    font-size: 1.15rem;
+  }
+  
+  .readme-content pre {
+    padding: 0.75rem;
+    font-size: 0.8rem;
+  }
+}
