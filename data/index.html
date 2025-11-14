@@ -7,18 +7,18 @@
   <title>ISS Tracker</title>
 
   <!-- Bootstrap & Leaflet -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link href="/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/leaflet.css">
 
   <!-- Leaflet + day/night terminator plugin -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
+  <script src="/leaflet.js"></script>
+<script src="/leaflet.terminator"></script>
 
   <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark navbar-enhanced mb-4">
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-enhanced mb-2">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">
         <span class="brand-icon">🛰️</span>
@@ -90,9 +90,16 @@
         </div>
         <div class="card shadow-sm">
           <div class="card-header bg-success text-white">Device Display</div>
-          <div class="card-body text-center p-2">
-            <img id="deviceScreen" src="/screen.bmp" alt="Device display" class="img-fluid device-screen">
-            <div class="small text-muted mt-2">Auto-updates every 5 seconds</div>
+          <div class="card-body text-center p-3">
+            <div class="m5stick-device">
+              <div class="m5stick-body">
+                <div class="m5stick-screen">
+                  <img id="deviceScreen" src="/screen.bmp" alt="Device display" class="device-screen">
+                </div>
+              </div>
+              <div class="m5stick-label">M5StickC Plus</div>
+            </div>
+            <div class="small text-muted mt-3">Auto-updates every 5 seconds</div>
           </div>
         </div>
       </div>
@@ -100,7 +107,7 @@
   </div>
 
   <script src="/app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

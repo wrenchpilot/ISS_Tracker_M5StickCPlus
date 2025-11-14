@@ -53,6 +53,7 @@ body { background:#f8f9fa }
   border-radius: .5rem;
   border: 1px solid #ccc;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* Map wrapper container to match sidebar height */
@@ -64,6 +65,7 @@ body { background:#f8f9fa }
 /* Match heights between columns */
 .row.match-height {
   display: flex;
+  align-items: flex-start;
 }
 
 .row.match-height > [class*='col-'] {
@@ -71,14 +73,9 @@ body { background:#f8f9fa }
   flex-direction: column;
 }
 
-.col-lg-8 .map-wrapper {
-  flex: 1;
-  min-height: 0;
-}
-
+/* Map wrapper - constrain to sidebar height */
 .col-lg-9 .map-wrapper {
-  flex: 1;
-  min-height: 0;
+  height: 758px;
 }
 
 .col-lg-3,
@@ -237,9 +234,120 @@ body { background:#f8f9fa }
 
 /* Device screenshot display */
 .device-screen {
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   image-rendering: crisp-edges;
+  display: block;
+}
+
+/* M5StickC Plus Device Frame */
+.m5stick-device {
+  display: inline-block;
+  text-align: center;
+}
+
+.m5stick-body {
+  position: relative;
+  width: 300px;
+  height: 180px;
+  background: linear-gradient(145deg, #ff6b35 0%, #ff8c42 50%, #ff6b35 100%);
+  border-radius: 8px;
+  padding: 18px 30px;
+  box-shadow: 
+    0 6px 12px rgba(0,0,0,0.25),
+    inset 0 1px 3px rgba(255,255,255,0.3),
+    inset 0 -2px 4px rgba(0,0,0,0.2);
+  margin: 0 auto;
+}
+
+/* M5 Logo embossed on left side - vertical */
+.m5stick-body::before {
+  content: 'M5';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  font-size: 32px;
+  font-weight: bold;
+  color: rgba(0,0,0,0.2);
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.1);
+  letter-spacing: 2px;
+}
+
+.m5stick-screen {
+  width: 240px;
+  height: 135px;
+  background: #000;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 
+    inset 0 0 8px rgba(0,0,0,0.8),
+    inset 0 2px 4px rgba(0,0,0,0.6),
+    0 0 0 2px rgba(0,0,0,0.4);
+}
+
+.m5stick-button {
+  position: absolute;
+  right: -6px;
+  width: 12px;
+  height: 24px;
+  background: linear-gradient(to right, #1a252f, #2c3e50);
+  border-radius: 2px;
+  box-shadow: 
+    inset -1px 1px 2px rgba(0,0,0,0.6),
+    1px 0 2px rgba(255,255,255,0.1);
+  font-size: 8px;
+  color: rgba(236, 240, 241, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  letter-spacing: -0.5px;
+}
+
+.m5stick-button-a {
+  top: 25px;
+}
+
+.m5stick-button-b {
+  bottom: 25px;
+}
+
+/* USB-C connector at bottom */
+.m5stick-power {
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 8px;
+  background: linear-gradient(to bottom, #1a1a1a, #2d2d2d);
+  border-radius: 2px 2px 3px 3px;
+  box-shadow: 
+    inset 0 1px 2px rgba(0,0,0,0.6),
+    0 1px 1px rgba(255,255,255,0.1);
+}
+
+/* USB-C port detail */
+.m5stick-power::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 2px;
+  background: #000;
+  border-radius: 1px;
+}
+
+.m5stick-label {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #7f8c8d;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 /* Live Telemetry card - fixed height for consistent layout */
@@ -276,6 +384,192 @@ body.privacy-visible .sensitive-info {
   filter: blur(0);
 }
 
+/* Offline fallback styles for setup page when Bootstrap CDN fails */
+@supports not (selector(:has(*))) {
+  /* Basic Bootstrap fallback - only loaded if CDN unavailable */
+}
+
+/* Minimal Bootstrap-style layout fallback for AP mode (offline) */
+body:not(.bootstrap-loaded) * { 
+  box-sizing: border-box; 
+}
+
+body:not(.bootstrap-loaded) {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f8f9fa;
+}
+
+body:not(.bootstrap-loaded) .container-fluid {
+  /* max-width: 1200px; */
+  margin: 0 auto;
+  padding: 20px;
+}
+
+body:not(.bootstrap-loaded) .card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+body:not(.bootstrap-loaded) .card-header {
+  padding: 12px 16px;
+  background: #007bff;
+  color: white;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+body:not(.bootstrap-loaded) .card-body {
+  padding: 16px;
+}
+
+body:not(.bootstrap-loaded) .form-label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+body:not(.bootstrap-loaded) .form-control,
+body:not(.bootstrap-loaded) .form-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+body:not(.bootstrap-loaded) .form-select[size] {
+  height: auto;
+  min-height: 200px;
+}
+
+body:not(.bootstrap-loaded) .form-text {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+body:not(.bootstrap-loaded) .btn {
+  display: inline-block;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+body:not(.bootstrap-loaded) .btn-success {
+  background: #28a745;
+  color: white;
+}
+
+body:not(.bootstrap-loaded) .btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+body:not(.bootstrap-loaded) .btn-outline-light {
+  background: transparent;
+  color: white;
+  border: 1px solid white;
+}
+
+body:not(.bootstrap-loaded) .btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+body:not(.bootstrap-loaded) .btn-sm {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+body:not(.bootstrap-loaded) .mb-3 {
+  margin-bottom: 16px;
+}
+
+body:not(.bootstrap-loaded) .d-flex {
+  display: flex;
+}
+
+body:not(.bootstrap-loaded) .gap-2 {
+  gap: 8px;
+}
+
+body:not(.bootstrap-loaded) .row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+}
+
+body:not(.bootstrap-loaded) [class^="col-"] {
+  padding: 0 8px;
+}
+
+body:not(.bootstrap-loaded) .col-12 {
+  width: 100%;
+}
+
+body:not(.bootstrap-loaded) .col-sm-5 {
+  width: 41.666667%;
+}
+
+body:not(.bootstrap-loaded) .col-sm-7 {
+  width: 58.333333%;
+}
+
+body:not(.bootstrap-loaded) .col-lg-5 {
+  width: 41.666667%;
+}
+
+body:not(.bootstrap-loaded) .col-lg-7 {
+  width: 58.333333%;
+}
+
+body:not(.bootstrap-loaded) input[type="text"],
+body:not(.bootstrap-loaded) input[type="password"] {
+  margin-bottom: 8px;
+}
+
+body:not(.bootstrap-loaded) .navbar {
+  background: #343a40;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+body:not(.bootstrap-loaded) .navbar-brand {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+  text-decoration: none;
+}
+
+body:not(.bootstrap-loaded) .small {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 991.98px) {
+  body:not(.bootstrap-loaded) .col-lg-5,
+  body:not(.bootstrap-loaded) .col-lg-7 {
+    width: 100%;
+  }
+}
+
+@media (max-width: 575.98px) {
+  body:not(.bootstrap-loaded) .col-sm-5,
+  body:not(.bootstrap-loaded) .col-sm-7 {
+    width: 100%;
+  }
+}
+
 .privacy-toggle {
   border: none !important;
   padding: 0.25rem 0.5rem;
@@ -301,28 +595,45 @@ body.privacy-visible .sensitive-info {
 .navbar.navbar-enhanced {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  padding: 0.75rem 0;
+  padding: 0.5rem 0 !important;
+  min-height: auto !important;
+  height: auto !important;
+}
+
+.navbar-enhanced .container-fluid {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
 }
 
 .navbar-enhanced .navbar-brand {
-  font-size: 1.5rem;
+  font-size: 1.05rem !important;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
 }
 
 .navbar-enhanced .navbar-brand .brand-icon {
-  font-size: 1.75rem;
+  font-size: 1.2rem !important;
   filter: drop-shadow(0 2px 4px rgba(255,255,255,0.3));
+  line-height: 1 !important;
+  display: inline-block;
 }
 
 .navbar-enhanced .nav-link {
   font-weight: 500;
-  padding: 0.5rem 1rem !important;
+  padding: 0.25rem 0.65rem !important;
   border-radius: 0.25rem;
   transition: all 0.2s ease;
+  font-size: 0.9rem !important;
+  line-height: 1 !important;
+  margin: 0 !important;
 }
 
 .navbar-enhanced .nav-link:hover {
@@ -333,4 +644,27 @@ body.privacy-visible .sensitive-info {
 .navbar-enhanced .nav-link.active {
   background: rgba(255,255,255,0.15);
   font-weight: 600;
+}
+
+/* Nuclear option: Override ALL Bootstrap navbar defaults */
+.navbar-enhanced.navbar {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.navbar-enhanced .navbar-nav {
+  padding: 0 !important;
+  margin: 0 !important;
+  margin-left: auto !important;
+}
+
+.navbar-enhanced .nav-item {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.navbar-enhanced .navbar-toggler {
+  padding: 0.2rem 0.4rem !important;
+  font-size: 1rem !important;
+  border: 1px solid rgba(255,255,255,0.5) !important;
 }

@@ -1054,8 +1054,8 @@ void routesForPortal()
             { serveStaticFile("/bootstrap.bundle.min.js"); });
   server.on("/leaflet.js", HTTP_GET, []()
             { serveStaticFile("/leaflet.js"); });
-  server.on("/leaflet.terminator.js", HTTP_GET, []()
-            { serveStaticFile("/leaflet.terminator.js"); });
+  server.on("/leaflet.terminator", HTTP_GET, []()
+            { serveStaticFile("/leaflet.terminator"); });
   server.on("/style.css", HTTP_GET, []()
             { serveStaticFile("/style.css"); });
     server.on("/bootstrap.min.css", HTTP_GET, []()
@@ -1128,8 +1128,8 @@ void routesForNormal()
             { serveStaticFile("/bootstrap.bundle.min.js"); });
   server.on("/leaflet.js", HTTP_GET, []()
             { serveStaticFile("/leaflet.js"); });
-  server.on("/leaflet.terminator.js", HTTP_GET, []()
-            { serveStaticFile("/leaflet.terminator.js"); });
+  server.on("/leaflet.terminator", HTTP_GET, []()
+            { serveStaticFile("/leaflet.terminator"); });
   server.on("/style.css", HTTP_GET, []()
             { serveStaticFile("/style.css"); });
     server.on("/bootstrap.min.css", HTTP_GET, []()

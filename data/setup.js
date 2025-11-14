@@ -39,9 +39,13 @@
 
   async function scanOnce(){
     try {
+      console.log('[SCAN] Requesting /scan.json...');
       const j = await getJSON('/scan.json');
+      console.log('[SCAN] Response:', j);
+      console.log('[SCAN] Networks found:', j?.nets?.length || 0);
       populateSSIDs(j?.nets || []);
     } catch(e) {
+      console.error('[SCAN] Error:', e);
       // leave previous list
     }
   }
