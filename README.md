@@ -55,7 +55,7 @@ A compact ISS tracker project for the M5StickC Plus (ESP32-based) with both on-d
 
 ## Screenshots
 
-![Map view showing ISS pass prediction](screenshots/map.png)
+![Map view](screenshots/map.png)
 
 _Web UI map / pass prediction view._
 
