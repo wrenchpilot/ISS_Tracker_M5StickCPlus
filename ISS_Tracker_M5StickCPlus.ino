@@ -15,7 +15,7 @@
 #include <LittleFS.h>
 #include <ESP.h>
 #include <math.h>
-#include "user_settings.h" // WIFI_SSID, WIFI_PASSWORD, HOME_LAT, HOME_LON, LOC_TOKEN (empty OK)
+#include "include/user_settings.h" // WIFI_SSID, WIFI_PASSWORD, HOME_LAT, HOME_LON, LOC_TOKEN (empty OK)
 
 // ----------------- CONFIG -----------------
 constexpr double RADIUS_KM = 800.0;

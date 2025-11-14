@@ -88,7 +88,7 @@ In Arduino IDE:
 
 ### 3. Configure Settings (Optional)
 
-Edit `user_settings.h` to set your home location and optional WiFi credentials:
+Edit `include/user_settings.h` to set your home location and optional WiFi credentials:
 ```cpp
 // WiFi credentials (optional - can be configured via web portal)
 #define WIFI_SSID ""        // Leave empty to use portal
@@ -213,7 +213,7 @@ Download the pre-made shortcut here: [**Update ISS Tracker Location**](https://w
 
 After installing, edit the shortcut to:
 - Update the device URL (replace `iss.local` with your device's IP if needed)
-- Set your auth token if you configured one in `user_settings.h`
+- Set your auth token if you configured one in `include/user_settings.h`
 
 **Manual Setup (Optional):**
 
@@ -235,7 +235,7 @@ To create the Shortcut manually:
 
    **Action 3: Text (Build JSON)**
    - Add a "Text" action
-   - Enter the following (replace `YOUR_TOKEN` if you set one in `user_settings.h`):
+   - Enter the following (replace `YOUR_TOKEN` if you set one in `include/user_settings.h`):
      ```json
      {"lat": LATITUDE, "lon": LONGITUDE, "token": "YOUR_TOKEN"}
      ```
@@ -261,17 +261,17 @@ To create the Shortcut manually:
 - Use Siri: "Hey Siri, Update ISS Tracker Location"
 - Automate it (iOS): Create an automation that runs when you arrive/leave a location
 
-**Note**: If using `LOC_TOKEN`, make sure it matches the token set in `user_settings.h`. If `LOC_TOKEN` is empty (default), you can omit the `"token"` field entirely or set it to an empty string.
+**Note**: If using `LOC_TOKEN`, make sure it matches the token set in `include/user_settings.h`. If `LOC_TOKEN` is empty (default), you can omit the `"token"` field entirely or set it to an empty string.
 
 ## Customization
 
-- **Home Location**: Edit `HOME_LAT` and `HOME_LON` in `user_settings.h`, or drag the green marker in the web UI
+- **Home Location**: Edit `HOME_LAT` and `HOME_LON` in `include/user_settings.h`, or drag the green marker in the web UI
 - **WiFi Configuration**: Use the captive portal (`http://192.168.4.1/setup.html`) or setup page when connected
 - **Web UI**: Modify files in `data/` folder, then re-upload filesystem
 - **Alert Range**: Change `RADIUS_KM` and `HYST_KM` constants in the `.ino` file
 - **Fetch Interval**: Adjust `FETCH_INTERVAL_MS` (default: 5 seconds)
 - **Mini-map**: Toggle with `SHOW_MINIMAP` constant in `drawMiniMap()` function
-- **API Security**: Set `LOC_TOKEN` in `user_settings.h` to require authentication for location changes
+- **API Security**: Set `LOC_TOKEN` in `include/user_settings.h` to require authentication for location changes
 
 ## Troubleshooting
 
@@ -280,7 +280,7 @@ To create the Shortcut manually:
 - Ensure 2.4GHz WiFi (ESP32 doesn't support 5GHz)
 - Try forgetting WiFi via `http://iss.local/setup.html` and reconfigure
 - Check device screen for status messages ("Wi-Fi ok" or "Setup Wi-Fi @...")
-- If hardcoded credentials in `user_settings.h`, verify SSID/password are correct
+- If hardcoded credentials in `include/user_settings.h`, verify SSID/password are correct
 
 ### Web UI shows "index.html not found"
 - **Filesystem not uploaded correctly**. The LittleFS upload is separate from sketch upload.
