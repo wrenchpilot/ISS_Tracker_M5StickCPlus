@@ -653,7 +653,7 @@ bool serveStaticFile(String path)
   File f = LittleFS.open(path, "r");
   if (!f)
     return false;
-  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.sendHeader("Cache-Control", "Cache-Control: public, max-age=31536000, immutable");
   server.streamFile(f, contentTypeFor(path));
   f.close();
   return true;
@@ -927,14 +927,13 @@ void handleConfigJson()
   server.send(200, "application/json", out);
 }
 
-void handleScanJson()
-{
-  WiFi.scanDelete();
+void handleScanJson() {
+  // Always do a fresh synchronous scan - ONLY reliable method in AP_STA mode
   int n = WiFi.scanNetworks(false, true);
+  
   DynamicJsonDocument doc(4096);
   JsonArray arr = doc.createNestedArray("nets");
-  for (int i = 0; i < n; ++i)
-  {
+  for (int i = 0; i < n; ++i) {
     JsonObject o = arr.createNestedObject();
     o["ssid"] = WiFi.SSID(i);
     o["rssi"] = WiFi.RSSI(i);
@@ -1045,12 +1044,24 @@ void routesForPortal()
   server.on("/index.html", HTTP_GET, handleIndex);
   server.on("/home", HTTP_GET, handleHomeRedirect);
 
+  server.on("/favicon.ico", HTTP_GET, []()
+            { serveStaticFile("/favicon.ico"); });
   server.on("/app.js", HTTP_GET, []()
             { serveStaticFile("/app.js"); });
   server.on("/setup.js", HTTP_GET, []()
             { serveStaticFile("/setup.js"); });
+  server.on("/bootstrap.bundle.min.js", HTTP_GET, []()
+            { serveStaticFile("/bootstrap.bundle.min.js"); });
+  server.on("/leaflet.js", HTTP_GET, []()
+            { serveStaticFile("/leaflet.js"); });
+  server.on("/leaflet.terminator.js", HTTP_GET, []()
+            { serveStaticFile("/leaflet.terminator.js"); });
   server.on("/style.css", HTTP_GET, []()
             { serveStaticFile("/style.css"); });
+    server.on("/bootstrap.min.css", HTTP_GET, []()
+            { serveStaticFile("/bootstrap.min.css"); });
+    server.on("/leaflet.css", HTTP_GET, []()
+            { serveStaticFile("/leaflet.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);
@@ -1107,12 +1118,24 @@ void routesForNormal()
   server.on("/setup.html", HTTP_GET, handleSetupHtml);
   server.on("/home", HTTP_GET, handleHomeRedirect);
 
+  server.on("/favicon.ico", HTTP_GET, []()
+            { serveStaticFile("/favicon.ico"); });
   server.on("/app.js", HTTP_GET, []()
             { serveStaticFile("/app.js"); });
   server.on("/setup.js", HTTP_GET, []()
             { serveStaticFile("/setup.js"); });
+  server.on("/bootstrap.bundle.min.js", HTTP_GET, []()
+            { serveStaticFile("/bootstrap.bundle.min.js"); });
+  server.on("/leaflet.js", HTTP_GET, []()
+            { serveStaticFile("/leaflet.js"); });
+  server.on("/leaflet.terminator.js", HTTP_GET, []()
+            { serveStaticFile("/leaflet.terminator.js"); });
   server.on("/style.css", HTTP_GET, []()
             { serveStaticFile("/style.css"); });
+    server.on("/bootstrap.min.css", HTTP_GET, []()
+            { serveStaticFile("/bootstrap.min.css"); });
+    server.on("/leaflet.css", HTTP_GET, []()
+            { serveStaticFile("/leaflet.css"); });
 
   server.on("/iss.json", HTTP_GET, handleIssJson);
   server.on("/track.json", HTTP_GET, handleTrackJson);
@@ -1142,33 +1165,29 @@ void routesForNormal()
   }
 }
 
-// ----------------- WIFI CONTROL -----------------
-void startPortal()
-{
-  WiFi.disconnect(true, true);
-  WiFi.scanDelete();
+// =================== Wi-Fi control ===================
+void startPortal() {
+  // WiFi.disconnect(false) was already called in tryConnectSTA() after failed connection
+  // Now safe to switch to AP_STA mode and start AP
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(apSSID().c_str(), nullptr);
-  delay(100);
+  delay(500);  // AP initialization delay
+  
   IPAddress apIp = WiFi.softAPIP();
   dns.start(53, "*", apIp);
-  drawPortalBanner(apIp);
   server.stop();
   routesForPortal();
   wifiState = WifiState::PORTAL;
 }
 
-bool tryConnectSTA()
-{
+bool tryConnectSTA() {
   String ssid, pass;
   bool haveSaved = loadWifiCreds(ssid, pass);
-  if (!haveSaved && strlen(WIFI_SSID) > 0)
-  {
+  if (!haveSaved && strlen(WIFI_SSID) > 0) {
     ssid = WIFI_SSID;
     pass = WIFI_PASSWORD;
   }
-  if (!ssid.length())
-  {
+  if (!ssid.length()) {
     startPortal();
     return false;
   }
@@ -1176,27 +1195,27 @@ bool tryConnectSTA()
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), pass.c_str());
   uint32_t t0 = millis();
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setTextColor(WHITE, BLACK);
-  M5.Lcd.drawString("Wi-Fi...", 4, 150);
-  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_CONNECT_TIMEOUT_MS)
-  {
-    M5.Lcd.drawString(".", M5.Lcd.getCursorX() + 2, 150);
+
+  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_CONNECT_TIMEOUT_MS) {
     delay(250);
   }
-  canvas.fillRect(4, 150, 236, 20, BLACK);
 
-  if (WiFi.status() == WL_CONNECTED)
-  {
+  if (WiFi.status() == WL_CONNECTED) {
     server.stop();
     routesForNormal();
-    M5.Lcd.setTextColor(GREEN, BLACK);
-    M5.Lcd.drawString("Wi-Fi ok " + WiFi.localIP().toString(), 4, 150);
     beep(WIFI_BEEP_HZ, WIFI_BEEP_MS);
     wifiState = WifiState::STA_OK;
     lastStaOkMs = millis();
     return true;
   }
+  
+  // CRITICAL FIX for ESP32 issue #8916:
+  // Connection failed - radio is stuck in "connecting" state
+  // MUST call disconnect(false) HERE (after failed connect, BEFORE mode switch)
+  // This clears the stuck state without disabling WiFi radio
+  WiFi.disconnect(false);
+  delay(100);  // Give WiFi stack time to process disconnect
+  
   startPortal();
   return false;
 }
@@ -1225,6 +1244,11 @@ void setup()
     canvas.pushSprite(0, 0);
   }
 
+  // CRITICAL: Clean WiFi initialization to prevent 5-minute AP startup delays
+  // This clears any stuck/corrupted WiFi state from previous sessions
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+  
   loadHomeFromNVS();
   tryConnectSTA();
   lastFetch = 0;
@@ -1362,8 +1386,9 @@ void loop()
     {
       M5.Lcd.drawString("Setup Wi-Fi @:", 4, 60);
       String apInfo = String("http://") + WiFi.softAPIP().toString();
-      M5.Lcd.drawString(apInfo, 4, 80);
-      M5.Lcd.drawString("Open /setup.html", 4, 100);
+      String apName = String("SSID:") + WiFi.softAPSSID();
+      M5.Lcd.drawString(apName, 4, 80);
+      M5.Lcd.drawString(apInfo, 4, 100);
     }
     else
     {
