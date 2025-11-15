@@ -50,6 +50,10 @@ _Web UI map / pass prediction view._
 
 _WiFi Setup Mode_
 
+![M5StickCPlus Device](screenshots/device.png)
+
+_Device in action_
+
 ## Requirements
 
 - macOS, Windows, or Linux development machine
