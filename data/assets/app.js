@@ -218,9 +218,10 @@
 
   async function fetchPredictions(startTs) {
     // 1 hour ahead, every 2 minutes (31 samples)
+    // Start from next interval so prediction is always ahead
     const step = 120; // seconds
     const count = 31;
-    const arr = Array.from({ length: count }, (_, i) => startTs + i * step);
+    const arr = Array.from({ length: count }, (_, i) => startTs + (i + 1) * step);
     const url = `${WISS_POS}?${qs({ timestamps: arr.join(','), units: 'kilometers' })}`;
     const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) throw new Error('iss_positions http ' + r.status);
@@ -302,6 +303,7 @@
         .map(p => L.latLng(p.latitude, p.longitude));
       const split = splitAtDateline(pts);
       predict.setLatLngs(split);
+      if (!predict._map) predict.addTo(map);
       fitAllOnce();
     } catch (e) {
       console.warn('Prediction error:', e.message || e);
@@ -345,10 +347,8 @@
         updateSun(Number(data.solar_lat), Number(data.solar_lon));
         addOrRefreshTerminator();
 
-        // Predictions: first time or if stale
-        if (!predict.getLatLngs().length || (Date.now() / 1000 - Number(data.timestamp)) > 60) {
-          refreshPrediction(Number(data.timestamp));
-        }
+        // Refresh prediction on EVERY poll so it moves with the ISS
+        await refreshPrediction(Number(data.timestamp));
 
         lastIss = data;
         fitAllOnce(); // ensure default "Fit All" once we have content
