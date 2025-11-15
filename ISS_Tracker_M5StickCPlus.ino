@@ -59,6 +59,14 @@ enum class WifiState
 };
 WifiState wifiState = WifiState::PORTAL;
 
+// ----------------- WIFI DIAGNOSTICS -----------------
+// Track results of the last STA connection attempt for debugging why /save might
+// appear to reboot back into portal mode.
+enum class StaAttemptResult { NONE, SUCCESS, TIMEOUT_FAIL };
+StaAttemptResult lastStaAttempt = StaAttemptResult::NONE;
+String lastStaAttemptSsid = "";          // SSID we most recently tried
+uint32_t lastStaAttemptDurationMs = 0;    // total time spent across attempts
+
 uint32_t lastFetch = 0;
 uint32_t lastStaOkMs = 0;
 bool soundEnabled = true;
@@ -914,14 +922,36 @@ void handleConfigJson()
 void handleScanJson() {
   // Always do a fresh synchronous scan - ONLY reliable method in AP_STA mode
   int n = WiFi.scanNetworks(false, true);
-  
+
+  // Known ESP32 quirk: in AP_STA mode after moving environments, scan can return 0 or -1 until radio fully reset.
+  // If first scan produced no results, perform a forced radio refresh and retry once.
+  if (n <= 0) {
+    // Preserve current AP SSID (portal mode) and restart cleanly
+    String apS = apSSID();
+    // Light reset sequence – avoid full device reboot
+    WiFi.scanDelete();
+    WiFi.disconnect(false); // clear ongoing states without erasing creds
+    WiFi.mode(WIFI_OFF);
+    delay(120);
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(apS.c_str(), nullptr);
+    delay(250); // allow AP + STA init settle
+    n = WiFi.scanNetworks(false, true);
+  }
+
   DynamicJsonDocument doc(4096);
+  JsonObject meta = doc.createNestedObject("meta");
+  meta["count"] = n;
+  meta["mode"] = (wifiState == WifiState::PORTAL ? "portal" : "sta");
+  meta["ap_sta"] = (WiFi.getMode() == WIFI_AP_STA);
   JsonArray arr = doc.createNestedArray("nets");
-  for (int i = 0; i < n; ++i) {
-    JsonObject o = arr.createNestedObject();
-    o["ssid"] = WiFi.SSID(i);
-    o["rssi"] = WiFi.RSSI(i);
-    o["locked"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+  if (n > 0) {
+    for (int i = 0; i < n; ++i) {
+      JsonObject o = arr.createNestedObject();
+      o["ssid"] = WiFi.SSID(i);
+      o["rssi"] = WiFi.RSSI(i);
+      o["locked"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+    }
   }
   String out;
   serializeJson(doc, out);
@@ -1052,6 +1082,18 @@ void routesForPortal()
   server.on("/predict.json", HTTP_GET, handlePredictJson);
   server.on("/config.json", HTTP_GET, handleConfigJson);
   server.on("/scan.json", HTTP_GET, handleScanJson);
+  // Debug endpoint to inspect last STA connect attempt
+  server.on("/wifi_debug.json", HTTP_GET, [](){
+    DynamicJsonDocument d(256);
+    d["last_attempt_ssid"] = lastStaAttemptSsid;
+    d["last_attempt_result"] = (lastStaAttempt==StaAttemptResult::SUCCESS?"success":(lastStaAttempt==StaAttemptResult::TIMEOUT_FAIL?"timeout_fail":"none"));
+    d["last_attempt_duration_ms"] = lastStaAttemptDurationMs;
+    d["wifi_status"] = (int)WiFi.status();
+    d["saved_creds"] = (int)lastStaAttemptSsid.length();
+    String out; serializeJson(d,out);
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", out);
+  });
 
   // serve a BMP capture of the current screen (write to LittleFS then serve)
   server.on("/screen.bmp", HTTP_GET, []()
@@ -1127,6 +1169,18 @@ void routesForNormal()
   server.on("/predict.json", HTTP_GET, handlePredictJson);
   server.on("/config.json", HTTP_GET, handleConfigJson);
   server.on("/scan.json", HTTP_GET, handleScanJson);
+  // Same diagnostics endpoint when in normal STA mode
+  server.on("/wifi_debug.json", HTTP_GET, [](){
+    DynamicJsonDocument d(256);
+    d["last_attempt_ssid"] = lastStaAttemptSsid;
+    d["last_attempt_result"] = (lastStaAttempt==StaAttemptResult::SUCCESS?"success":(lastStaAttempt==StaAttemptResult::TIMEOUT_FAIL?"timeout_fail":"none"));
+    d["last_attempt_duration_ms"] = lastStaAttemptDurationMs;
+    d["wifi_status"] = (int)WiFi.status();
+    d["saved_creds"] = (int)lastStaAttemptSsid.length();
+    String out; serializeJson(d,out);
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", out);
+  });
 
   // ensure /screen.bmp is available in normal routes (STA mode)
   server.on("/screen.bmp", HTTP_GET, []()
@@ -1176,16 +1230,20 @@ bool tryConnectSTA() {
     startPortal();
     return false;
   }
+  // Record attempt metadata
+  lastStaAttemptSsid = ssid;
+  lastStaAttempt = StaAttemptResult::NONE;
+  lastStaAttemptDurationMs = 0;
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), pass.c_str());
   uint32_t t0 = millis();
-
   while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_CONNECT_TIMEOUT_MS) {
     delay(250);
   }
-
+  lastStaAttemptDurationMs = millis() - t0;
   if (WiFi.status() == WL_CONNECTED) {
+    lastStaAttempt = StaAttemptResult::SUCCESS;
     server.stop();
     routesForNormal();
     beep(WIFI_BEEP_HZ, WIFI_BEEP_MS);
@@ -1193,14 +1251,35 @@ bool tryConnectSTA() {
     lastStaOkMs = millis();
     return true;
   }
-  
-  // CRITICAL FIX for ESP32 issue #8916:
-  // Connection failed - radio is stuck in "connecting" state
-  // MUST call disconnect(false) HERE (after failed connect, BEFORE mode switch)
-  // This clears the stuck state without disabling WiFi radio
+
+  // First attempt failed; perform a light radio reset & retry once with extended timeout.
   WiFi.disconnect(false);
-  delay(100);  // Give WiFi stack time to process disconnect
-  
+  delay(120);
+  WiFi.mode(WIFI_OFF);
+  delay(120);
+  WiFi.mode(WIFI_STA);
+  delay(80);
+  WiFi.begin(ssid.c_str(), pass.c_str());
+  uint32_t t1 = millis();
+  const uint32_t EXT_TIMEOUT_MS = WIFI_CONNECT_TIMEOUT_MS + 15000; // +15s for slow DHCP / hidden SSID
+  while (WiFi.status() != WL_CONNECTED && (millis() - t1) < EXT_TIMEOUT_MS) {
+    delay(300);
+  }
+  lastStaAttemptDurationMs += millis() - t1;
+  if (WiFi.status() == WL_CONNECTED) {
+    lastStaAttempt = StaAttemptResult::SUCCESS;
+    server.stop();
+    routesForNormal();
+    beep(WIFI_BEEP_HZ, WIFI_BEEP_MS);
+    wifiState = WifiState::STA_OK;
+    lastStaOkMs = millis();
+    return true;
+  }
+
+  // Final failure -> portal fallback
+  lastStaAttempt = StaAttemptResult::TIMEOUT_FAIL;
+  WiFi.disconnect(false);
+  delay(100);
   startPortal();
   return false;
 }
